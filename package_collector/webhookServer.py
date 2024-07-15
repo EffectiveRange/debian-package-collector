@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from context_logger import get_logger
 from flask import Flask, request, Response, abort
-from package_downloader import IFileDownloader
+from package_downloader import IFileDownloader, ReleaseConfig
 from waitress.server import create_server
 
 from package_collector import ISourceRegistry
@@ -127,14 +127,16 @@ class WebhookServer(IWebhookServer):
 
         if self._source_registry.is_registered(repo_name):
             source = self._source_registry.get(repo_name)
-            config = source.get_config()
 
-            for asset in release['assets']:
-                if fnmatch.fnmatch(asset['name'], config.matcher):
-                    log.info('Found matching asset', release=config, asset=asset['name'])
-                    Thread(target=self._download_asset, args=[asset, config.raw_token]).start()
+            Thread(target=self._download_assets, args=(source.get_config(), release['assets'])).start()
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)
+
+    def _download_assets(self, config: ReleaseConfig, assets: list[dict[str, Any]]) -> None:
+        for asset in assets:
+            if fnmatch.fnmatch(asset['name'], config.matcher):
+                log.info('Found matching asset', release=config, asset=asset['name'])
+                self._download_asset(asset, config.raw_token)
 
     def _download_asset(self, asset: dict[str, Any], token: Optional[str] = None) -> None:
         log.debug('Downloading asset', asset=asset['name'])

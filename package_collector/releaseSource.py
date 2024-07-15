@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 from context_logger import get_logger
 from github.GitRelease import GitRelease
+from github.Repository import Repository
 from package_downloader import IRepositoryProvider, ReleaseConfig
 
 log = get_logger('ReleaseSource')
@@ -33,8 +34,9 @@ class ReleaseSource(IReleaseSource):
 
     def __init__(self, config: ReleaseConfig, repository_provider: IRepositoryProvider) -> None:
         self._config = config
+        self._repository_provider = repository_provider
+        self._repository: Optional[Repository] = None
         self._release: Optional[GitRelease] = None
-        self._repository = repository_provider.get_repository(self._config)
 
     def get_config(self) -> ReleaseConfig:
         return self._config
@@ -46,7 +48,8 @@ class ReleaseSource(IReleaseSource):
         if latest_release := self._get_release():
             if not self._release or self._release.tag_name != latest_release.tag_name:
                 old_tag = self._release.tag_name if self._release else None
-                log.info('New release found', old_tag=old_tag, new_tag=latest_release.tag_name)
+                log.info('New release found',
+                         repo=self._config.full_name, old_tag=old_tag, new_tag=latest_release.tag_name)
                 self._release = latest_release
                 return True
 
@@ -54,7 +57,14 @@ class ReleaseSource(IReleaseSource):
 
     def _get_release(self) -> Optional[GitRelease]:
         try:
-            return self._repository.get_latest_release()
+            repository = self._get_repository()
+            return repository.get_latest_release()
         except Exception as error:
-            log.error('Error fetching release', error=error)
+            log.error('Error fetching release', error=error, repo=self._config.full_name)
             return None
+
+    def _get_repository(self) -> Repository:
+        if not self._repository:
+            self._repository = self._repository_provider.get_repository(self._config)
+
+        return self._repository

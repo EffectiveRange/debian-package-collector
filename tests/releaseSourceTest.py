@@ -19,14 +19,17 @@ class ReleaseSourceTest(TestCase):
     def setUp(self):
         print()
 
-    def test_retrieves_repository(self):
+    def test_returns_false_when_failed_to_get_repository(self):
         # Given
         config, repository_provider, repository = create_components()
+        release_source = ReleaseSource(config, repository_provider)
+        repository_provider.get_repository.side_effect = Exception('Failed to get repository')
 
         # When
-        ReleaseSource(config, repository_provider)
+        result = release_source.check_latest_release()
 
         # Then
+        self.assertFalse(result)
         repository_provider.get_repository.assert_called_once_with(config)
 
     def test_returns_false_when_no_release_found(self):
@@ -39,6 +42,7 @@ class ReleaseSourceTest(TestCase):
 
         # Then
         self.assertFalse(result)
+        repository_provider.get_repository.assert_called_once_with(config)
 
     def test_returns_true_when_first_release_found(self):
         # Given
@@ -51,6 +55,7 @@ class ReleaseSourceTest(TestCase):
 
         # Then
         self.assertTrue(result)
+        repository_provider.get_repository.assert_called_once_with(config)
 
     def test_returns_true_when_new_release_found(self):
         # Given
