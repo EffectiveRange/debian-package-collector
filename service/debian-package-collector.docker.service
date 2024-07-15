@@ -1,0 +1,26 @@
+[Unit]
+Description=Debian Package Collector Container
+After=docker.service
+Requires=docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+TimeoutStartSec=0
+Environment="WEBHOOK_SECRET=${WEBHOOK_SECRET}"
+ExecStartPre=-/usr/bin/docker pull effectiverange/debian-package-collector:${TAG}
+ExecStart=/usr/bin/docker run --net=host --name=debian-package-collector \
+    -v /opt/debs:/opt/debs \
+    -v /var/log/effective-range/debian-package-collector:/var/log/effective-range/debian-package-collector \
+    effectiverange/debian-package-collector:${TAG} \
+    -- https://raw.githubusercontent.com/EffectiveRange/infrastructure-configuration/main/aptrepo/collector/release-config.json \
+    --download /opt/debs \
+    --interval 3600 \
+    --secret ${WEBHOOK_SECRET}
+ExecStop=/usr/bin/docker kill debian-package-collector
+ExecStopPost=/usr/bin/docker rm debian-package-collector
+
+[Install]
+WantedBy=multi-user.target
