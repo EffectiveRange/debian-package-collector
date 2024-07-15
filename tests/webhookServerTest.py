@@ -224,16 +224,16 @@ def create_release() -> dict[str, Any]:
             'draft': False,
             'prerelease': False,
             'tag_name': '1.0.0',
-            'repository': {
-                'full_name': 'owner1/repo1'
-            },
             'assets': [
                 {
                     'name': 'file1.deb',
                     'url': 'https://example.com/file1.deb'
                 }
             ]
-        }
+        },
+        'repository': {
+            'full_name': 'owner1/repo1'
+        },
     }
 
 
