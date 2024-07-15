@@ -97,7 +97,7 @@ class WebhookServer(IWebhookServer):
                 action = payload['action']
 
                 if action == 'published':
-                    self._process_release(release)
+                    self._process_release(payload)
 
                     return Response(status=200)
 
@@ -119,11 +119,10 @@ class WebhookServer(IWebhookServer):
                 log.error('Invalid signature')
                 abort(403, 'Invalid signature')
 
-    def _process_release(self, release: dict[str, Any]) -> None:
-        repo_name = release['repository']['full_name']
-        tag = release['tag_name']
-
-        log.info('Processing release', repo=repo_name, tag=tag)
+    def _process_release(self, payload: dict[str, Any]) -> None:
+        repo_name = payload['repository']['full_name']
+        release = payload['release']
+        log.info('Processing release', repo=repo_name, tag=release['tag_name'])
 
         if self._source_registry.is_registered(repo_name):
             source = self._source_registry.get(repo_name)

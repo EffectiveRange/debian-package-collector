@@ -17,4 +17,4 @@ image:
 	docker build $(ROOT_DIR) --file Dockerfile --tag effectiverange/debian-package-collector$(:)$(TAG)
 
 service:
-	@cat $(ROOT_DIR)/service/debian-package-collector.docker.service | TAG=$(TAG) envsubst > $(ROOT_DIR)/dist/debian-package-collector-$(TAG:v%=%).docker.service
+	TAG=$(TAG) envsubst '$$TAG' < $(ROOT_DIR)/service/debian-package-collector.docker.service > $(ROOT_DIR)/dist/debian-package-collector-$(TAG:v%=%).docker.service
