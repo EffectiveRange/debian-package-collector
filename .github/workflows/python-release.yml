@@ -36,7 +36,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: effectiverange/apt-server
+          images: effectiverange/debian-package-collector
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
