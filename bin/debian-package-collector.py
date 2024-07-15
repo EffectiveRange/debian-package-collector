@@ -53,7 +53,8 @@ def main() -> None:
 
 def _get_arguments() -> Namespace:
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-f', '--log-file', help='log file path')
+    parser.add_argument('-f', '--log-file', help='log file path',
+                        default='/var/log/effective-range/debian-package-collector/debian-package-collector.log')
     parser.add_argument('-l', '--log-level', help='logging level', default='info')
     parser.add_argument('-d', '--download', help='package download location', default='/tmp/packages')
     parser.add_argument('-i', '--interval', help='release monitor interval in seconds', type=int, default=600)
