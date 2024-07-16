@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: 2024 Attila Gombos <attila.gombos@effective-range.com>
 # SPDX-License-Identifier: MIT
 
+from typing import Optional
+
 from context_logger import get_logger
 from package_downloader import IRepositoryProvider, ReleaseConfig
 
@@ -27,8 +29,9 @@ class ISourceRegistry(object):
 
 class SourceRegistry(ISourceRegistry):
 
-    def __init__(self, repository_provider: IRepositoryProvider) -> None:
+    def __init__(self, repository_provider: IRepositoryProvider, github_token: Optional[str] = None) -> None:
         self._repository_provider = repository_provider
+        self._github_token = github_token
         self._release_sources: dict[str, IReleaseSource] = {}
 
     def register(self, config: ReleaseConfig) -> IReleaseSource:
@@ -39,6 +42,10 @@ class SourceRegistry(ISourceRegistry):
         if source:
             log.warn('Release source already registered', repo=repo_name)
             return source
+
+        if not config.token and self._github_token:
+            log.info('Using global GitHub token for release source', repo=repo_name)
+            config.token = self._github_token
 
         source = ReleaseSource(config, self._repository_provider)
         self._release_sources[repo_name] = source

@@ -63,9 +63,10 @@ class PackageCollectorTest(TestCase):
         release_monitor.shutdown.assert_called_once()
         webhook_server.shutdown.assert_not_called()
 
-    def test_run_and_shutdown_when_no_monitoring(self):
+    def test_run_and_shutdown_when_no_initial_collection_and_no_monitoring(self):
         # Given
-        config, json_loader, source_registry, release_monitor, webhook_server = create_components(enable_monitor=False)
+        config, json_loader, source_registry, release_monitor, webhook_server = create_components(initial_collect=False,
+                                                                                                  enable_monitor=False)
 
         # When
         with PackageCollector(config, json_loader, source_registry, release_monitor,
@@ -73,10 +74,9 @@ class PackageCollectorTest(TestCase):
             Thread(target=package_collector.run).start()
 
             # Then
-            wait_for_assertion(1, release_monitor.check_all.assert_called_once)
+            wait_for_assertion(1, webhook_server.start.assert_called_once)
 
             release_monitor.start.assert_not_called()
-            webhook_server.start.assert_called_once()
 
         release_monitor.shutdown.assert_not_called()
         webhook_server.shutdown.assert_called_once()
@@ -101,10 +101,11 @@ class PackageCollectorTest(TestCase):
         webhook_server.shutdown.assert_not_called()
 
 
-def create_components(config_list=None, enable_monitor: bool = True, enable_webhook: bool = True):
+def create_components(config_list: list[ReleaseConfig] = None,
+                      initial_collect: bool = True, enable_monitor: bool = True, enable_webhook: bool = True):
     if config_list is None:
         config_list = []
-    config = PackageCollectorConfig('', enable_monitor, enable_webhook)
+    config = PackageCollectorConfig('', initial_collect, enable_monitor, enable_webhook)
     json_loader = MagicMock(spec=IJsonLoader)
     json_loader.load_list.return_value = config_list
     source_registry = MagicMock(spec=ISourceRegistry)
