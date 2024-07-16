@@ -22,7 +22,7 @@ class SourceRegistryTest(TestCase):
     def test_returns_source_when_registered(self):
         # Given
         repository_provider = MagicMock(spec=IRepositoryProvider)
-        source_registry = SourceRegistry(repository_provider)
+        source_registry = SourceRegistry(repository_provider, 'token')
         config = ReleaseConfig(owner='owner1', repo='repo1')
 
         # When
@@ -30,12 +30,13 @@ class SourceRegistryTest(TestCase):
 
         # Then
         self.assertEqual(source_registry._release_sources.get('owner1/repo1'), result)
+        self.assertEqual('token', result.get_config().token)
 
     def test_returns_source_when_registered_again(self):
         # Given
         repository_provider = MagicMock(spec=IRepositoryProvider)
-        source_registry = SourceRegistry(repository_provider)
-        config = ReleaseConfig(owner='owner1', repo='repo1')
+        source_registry = SourceRegistry(repository_provider, 'token')
+        config = ReleaseConfig(owner='owner1', repo='repo1', token='token1')
 
         source = source_registry.register(config)
 
@@ -44,6 +45,7 @@ class SourceRegistryTest(TestCase):
 
         # Then
         self.assertEqual(source, result)
+        self.assertEqual('token1', result.get_config().token)
 
     def test_returns_true_when_source_is_registered(self):
         # Given
@@ -98,8 +100,8 @@ class SourceRegistryTest(TestCase):
         repository_provider = MagicMock(spec=IRepositoryProvider)
         source_registry = SourceRegistry(repository_provider)
 
-        config1 = ReleaseConfig(owner='owner4', repo='repo4')
-        config2 = ReleaseConfig(owner='owner5', repo='repo5')
+        config1 = ReleaseConfig(owner='owner1', repo='repo1')
+        config2 = ReleaseConfig(owner='owner2', repo='repo2')
         source1 = source_registry.register(config1)
         source2 = source_registry.register(config2)
 

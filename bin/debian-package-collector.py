@@ -26,7 +26,7 @@ def main() -> None:
     log.info('Starting package collector', arguments=vars(arguments))
 
     repository_provider = RepositoryProvider()
-    source_registry = SourceRegistry(repository_provider)
+    source_registry = SourceRegistry(repository_provider, arguments.token)
 
     session_provider = SessionProvider()
     file_downloader = FileDownloader(session_provider, os.path.abspath(arguments.download))
@@ -36,7 +36,7 @@ def main() -> None:
     release_monitor = ReleaseMonitor(source_registry, asset_downloader, reusable_timer, arguments.interval)
     webhook_server = WebhookServer(source_registry, file_downloader, arguments.port, arguments.secret)
     config_path = file_downloader.download(arguments.release_config, skip_if_exists=False)
-    config = PackageCollectorConfig(config_path, arguments.monitor, arguments.webhook)
+    config = PackageCollectorConfig(config_path, arguments.initial, arguments.monitor, arguments.webhook)
     json_loader = JsonLoader()
 
     package_collector = PackageCollector(config, json_loader, source_registry, release_monitor, webhook_server)
@@ -60,7 +60,10 @@ def _get_arguments() -> Namespace:
     parser.add_argument('-i', '--interval', help='release monitor interval in seconds', type=int, default=600)
     parser.add_argument('-p', '--port', help='webhook server port to listen on', type=int, default=8080)
     parser.add_argument('-s', '--secret',
-                        help='webhook secret to verify requests (supports environment variable reference with $)')
+                        help='webhook secret to verify requests, supports environment variables with $')
+    parser.add_argument('-t', '--token',
+                        help='global token to use if not specified in config, supports environment variables with $')
+    parser.add_argument('--initial', help='enable initial collection', action=BooleanOptionalAction, default=True)
     parser.add_argument('--monitor', help='enable periodic monitoring', action=BooleanOptionalAction, default=True)
     parser.add_argument('--webhook', help='enable the webhook server', action=BooleanOptionalAction, default=True)
 

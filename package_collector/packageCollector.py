@@ -16,6 +16,7 @@ log = get_logger('PackageCollector')
 @dataclass
 class PackageCollectorConfig:
     config_path: str
+    initial_collect: bool
     enable_monitor: bool
     enable_webhook: bool
 
@@ -50,8 +51,9 @@ class PackageCollector(object):
             log.info('Starting webhook server')
             self._webhook_server.start()
 
-        log.info('Collecting initial packages')
-        self._release_monitor.check_all()
+        if self._config.initial_collect:
+            log.info('Initial package collection')
+            self._release_monitor.check_all()
 
     def shutdown(self) -> None:
         if self._config.enable_monitor:
