@@ -89,14 +89,8 @@ class WebhookServer(IWebhookServer):
 
             if request.headers.get('X-GitHub-Event') == 'release':
                 payload = json.loads(request.data)
-                release = payload['release']
 
-                if release['draft'] or release['prerelease']:
-                    return Response(status=204)
-
-                action = payload['action']
-
-                if action == 'published':
+                if payload['action'] == 'released':
                     self._process_release(payload)
 
                     return Response(status=200)

@@ -123,7 +123,7 @@ class WebhookServerTest(TestCase):
 
             self.assertEqual(204, response.status_code)
 
-    def test_returns_204_when_prerelease(self):
+    def test_returns_204_when_not_released(self):
         # Given
         source_registry, file_downloader = create_components()
 
@@ -132,29 +132,7 @@ class WebhookServerTest(TestCase):
 
             client = webhook_server._app.test_client()
             release = create_release()
-            release['release']['prerelease'] = True
-
-            headers = {
-                'Content-Type': 'application/json',
-                'X-Hub-Signature-256': create_signature('secret', release),
-                'X-GitHub-Event': 'release'
-            }
-
-            # When
-            response = client.post('/webhook', json=release, headers=headers)
-
-            self.assertEqual(204, response.status_code)
-
-    def test_returns_204_when_release_created(self):
-        # Given
-        source_registry, file_downloader = create_components()
-
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
-            webhook_server.start()
-
-            client = webhook_server._app.test_client()
-            release = create_release()
-            release['action'] = 'created'
+            release['action'] = 'published'
 
             headers = {
                 'Content-Type': 'application/json',
@@ -219,10 +197,8 @@ class WebhookServerTest(TestCase):
 
 def create_release() -> dict[str, Any]:
     return {
-        'action': 'published',
+        'action': 'released',
         'release': {
-            'draft': False,
-            'prerelease': False,
             'tag_name': '1.0.0',
             'assets': [
                 {
