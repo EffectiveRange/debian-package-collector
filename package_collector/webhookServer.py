@@ -83,14 +83,14 @@ class WebhookServer(IWebhookServer):
 
         @self._app.route('/webhook', methods=['POST'])
         def webhook() -> Response:
-            log.info('Webhook request', request=request)
-
             self._verify_signature()
 
             if request.headers.get('X-GitHub-Event') == 'release':
                 payload = json.loads(request.data)
 
-                if payload['action'] == 'released':
+                log.debug('Received release event', payload=payload)
+
+                if payload['action'] in ['published', 'edited']:
                     self._process_release(payload)
 
                     return Response(status=200)
@@ -116,16 +116,20 @@ class WebhookServer(IWebhookServer):
     def _process_release(self, payload: dict[str, Any]) -> None:
         repo_name = payload['repository']['full_name']
         release = payload['release']
-        log.info('Processing release', repo=repo_name, tag=release['tag_name'])
+        action = payload['action']
+
+        log.info('Processing release', repo=repo_name, action=action, tag=release['tag_name'])
 
         if self._source_registry.is_registered(repo_name):
             source = self._source_registry.get(repo_name)
 
-            Thread(target=self._download_assets, args=(source.get_config(), release['assets'])).start()
+            Thread(target=self._download_assets, args=[source.get_config(), release['assets']]).start()
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)
 
     def _download_assets(self, config: ReleaseConfig, assets: list[dict[str, Any]]) -> None:
+        log.debug('Available assets', assets=assets)
+
         for asset in assets:
             if fnmatch.fnmatch(asset['name'], config.matcher):
                 log.info('Found matching asset', release=config, asset=asset['name'])
