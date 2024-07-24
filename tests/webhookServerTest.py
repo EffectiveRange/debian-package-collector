@@ -132,7 +132,7 @@ class WebhookServerTest(TestCase):
 
             client = webhook_server._app.test_client()
             release = create_release()
-            release['action'] = 'published'
+            release['action'] = 'created'
 
             headers = {
                 'Content-Type': 'application/json',
@@ -197,7 +197,7 @@ class WebhookServerTest(TestCase):
 
 def create_release() -> dict[str, Any]:
     return {
-        'action': 'released',
+        'action': 'published',
         'release': {
             'tag_name': '1.0.0',
             'assets': [
