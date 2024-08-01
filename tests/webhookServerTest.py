@@ -58,7 +58,8 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
-            self.assertEqual(403, response.status_code)
+        # Then
+        self.assertEqual(403, response.status_code)
 
     def test_returns_403_when_not_supported_algorithm(self):
         # Given
@@ -79,7 +80,8 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
-            self.assertEqual(403, response.status_code)
+        # Then
+        self.assertEqual(403, response.status_code)
 
     def test_returns_403_when_invalid_signature(self):
         # Given
@@ -100,7 +102,8 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
-            self.assertEqual(403, response.status_code)
+        # Then
+        self.assertEqual(403, response.status_code)
 
     def test_returns_204_when_not_release(self):
         # Given
@@ -121,9 +124,10 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
-            self.assertEqual(204, response.status_code)
+        # Then
+        self.assertEqual(204, response.status_code)
 
-    def test_returns_204_when_not_released(self):
+    def test_returns_204_when_action_filtered_out(self):
         # Given
         source_registry, file_downloader = create_components()
 
@@ -143,7 +147,8 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
-            self.assertEqual(204, response.status_code)
+        # Then
+        self.assertEqual(204, response.status_code)
 
     def test_returns_200_and_downloads_asset_when_release_published(self):
         # Given
@@ -154,7 +159,6 @@ class WebhookServerTest(TestCase):
             webhook_server.start()
 
             client = webhook_server._app.test_client()
-
             release = create_release()
 
             headers = {
@@ -166,11 +170,60 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
+            # Then
             wait_for_assertion(1, file_downloader.download.assert_called_once_with,
                                'https://example.com/file1.deb', 'file1.deb',
                                {'Accept': 'application/octet-stream', 'Authorization': 'token test_token'})
 
-            self.assertEqual(200, response.status_code)
+        self.assertEqual(200, response.status_code)
+
+    def test_returns_200_when_release_released(self):
+        # Given
+        source = create_source()
+        source_registry, file_downloader = create_components(source)
+
+        with WebhookServer(source_registry, file_downloader, 0, '$TEST_SECRET') as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+            release['action'] = 'released'
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release'
+            }
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+        # Then
+        self.assertEqual(200, response.status_code)
+
+    def test_returns_200_when_release_edited(self):
+        # Given
+        source = create_source()
+        source_registry, file_downloader = create_components(source)
+
+        with WebhookServer(source_registry, file_downloader, 0, '$TEST_SECRET') as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+            release['action'] = 'edited'
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release'
+            }
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+        # Then
+        self.assertEqual(200, response.status_code)
 
     def test_returns_200_and_skips_download_when_repo_not_registered(self):
         # Given
@@ -180,7 +233,6 @@ class WebhookServerTest(TestCase):
             webhook_server.start()
 
             client = webhook_server._app.test_client()
-
             release = create_release()
 
             headers = {
@@ -192,7 +244,8 @@ class WebhookServerTest(TestCase):
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
-            self.assertEqual(200, response.status_code)
+        # Then
+        self.assertEqual(200, response.status_code)
 
 
 def create_release() -> dict[str, Any]:
