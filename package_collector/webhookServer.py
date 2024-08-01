@@ -90,7 +90,7 @@ class WebhookServer(IWebhookServer):
 
                 log.debug('Received release event', payload=payload)
 
-                if payload['action'] in ['published', 'edited']:
+                if payload['action'] in ['released', 'published', 'edited']:
                     self._process_release(payload)
 
                     return Response(status=200)
@@ -128,7 +128,7 @@ class WebhookServer(IWebhookServer):
             log.warn('Repository not registered, skipping', repo=repo_name)
 
     def _download_assets(self, config: ReleaseConfig, assets: list[dict[str, Any]]) -> None:
-        log.debug('Available assets', assets=assets)
+        log.info('Available assets', assets=assets)
 
         for asset in assets:
             if fnmatch.fnmatch(asset['name'], config.matcher):
