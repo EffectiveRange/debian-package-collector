@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='debian-package-collector',
-    version='1.0.7',
+    version='1.0.8',
     description='Debian package collector to download .deb packages from new releases',
     author='Ferenc Nandor Janky & Attila Gombos',
     author_email='info@effective-range.com',
