@@ -91,9 +91,7 @@ class WebhookServer(IWebhookServer):
                 log.debug('Received release event', payload=payload)
 
                 if payload['action'] in ['released', 'published', 'edited']:
-                    self._process_release(payload)
-
-                    return Response(status=200)
+                    return self._process_release(payload)
 
             return Response(status=204)
 
@@ -113,7 +111,7 @@ class WebhookServer(IWebhookServer):
                 log.error('Invalid signature')
                 abort(403, 'Invalid signature')
 
-    def _process_release(self, payload: dict[str, Any]) -> None:
+    def _process_release(self, payload: dict[str, Any]) -> Response:
         repo_name = payload['repository']['full_name']
         release = payload['release']
         action = payload['action']
@@ -123,17 +121,27 @@ class WebhookServer(IWebhookServer):
         if self._source_registry.is_registered(repo_name):
             source = self._source_registry.get(repo_name)
 
-            Thread(target=self._download_assets, args=[source.get_config(), release['assets']]).start()
+            return self._download_assets(source.get_config(), release['assets'])
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)
+            return Response(status=204)
 
-    def _download_assets(self, config: ReleaseConfig, assets: list[dict[str, Any]]) -> None:
-        log.info('Available assets', assets=assets)
+    def _download_assets(self, config: ReleaseConfig, assets: list[dict[str, Any]]) -> Response:
+        log.info('Available assets', assets=[asset['name'] for asset in assets])
+
+        any_match = False
 
         for asset in assets:
             if fnmatch.fnmatch(asset['name'], config.matcher):
+                any_match = True
                 log.info('Found matching asset', release=config, asset=asset['name'])
-                self._download_asset(asset, config.raw_token)
+                Thread(target=self._download_asset, args=[asset, config.raw_token]).start()
+
+        if not any_match:
+            log.warn('No matching assets found', release=config)
+            return Response(status=204)
+        else:
+            return Response(status=200)
 
     def _download_asset(self, asset: dict[str, Any], token: Optional[str] = None) -> None:
         log.debug('Downloading asset', asset=asset['name'])

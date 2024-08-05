@@ -225,7 +225,7 @@ class WebhookServerTest(TestCase):
         # Then
         self.assertEqual(200, response.status_code)
 
-    def test_returns_200_and_skips_download_when_repo_not_registered(self):
+    def test_returns_204_and_skips_download_when_repo_not_registered(self):
         # Given
         source_registry, file_downloader = create_components()
 
@@ -245,7 +245,31 @@ class WebhookServerTest(TestCase):
             response = client.post('/webhook', json=release, headers=headers)
 
         # Then
-        self.assertEqual(200, response.status_code)
+        self.assertEqual(204, response.status_code)
+
+    def test_returns_204_when_no_matching_asset_found(self):
+        # Given
+        source = create_source()
+        source.config.matcher = '*.rpm'
+        source_registry, file_downloader = create_components(source)
+
+        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('secret', release),
+                'X-GitHub-Event': 'release'
+            }
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+        # Then
+        self.assertEqual(204, response.status_code)
 
 
 def create_release() -> dict[str, Any]:
