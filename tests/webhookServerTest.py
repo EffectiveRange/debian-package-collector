@@ -204,6 +204,7 @@ class WebhookServerTest(TestCase):
 
             # Then
             wait_for_assertion(2, asset_downloader.download.assert_called_once_with, source.config, source.release)
+            source.check_latest_release.assert_called_once()
 
         self.assertEqual(200, response.status_code)
 
