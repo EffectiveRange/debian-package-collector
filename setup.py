@@ -8,8 +8,10 @@ setup(
     author_email='info@effective-range.com',
     packages=['package_collector'],
     scripts=['bin/debian-package-collector.py'],
-    install_requires=['flask', 'waitress',
-                      'python-context-logger@git+https://github.com/EffectiveRange/python-context-logger.git@latest',
-                      'debian-package-downloader'
-                      '@git+https://github.com/EffectiveRange/debian-package-downloader.git@latest']
+    install_requires=[
+        'flask',
+        'waitress',
+        'python-context-logger@git+https://github.com/EffectiveRange/python-context-logger.git@latest',
+        'debian-package-downloader@git+https://github.com/EffectiveRange/debian-package-downloader.git@latest',
+    ],
 )

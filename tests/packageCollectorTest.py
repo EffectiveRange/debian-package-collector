@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 from context_logger import setup_logging
 from package_downloader import IJsonLoader, ReleaseConfig
+from test_utility import wait_for_assertion
 
 from package_collector import PackageCollector, PackageCollectorConfig, ISourceRegistry, IReleaseMonitor, IWebhookServer
-from tests import wait_for_assertion
 
 
 class PackageCollectorTest(TestCase):
@@ -24,20 +24,19 @@ class PackageCollectorTest(TestCase):
         release_config1 = ReleaseConfig(owner='owner1', repo='repo1')
         release_config2 = ReleaseConfig(owner='owner2', repo='repo2')
         config, json_loader, source_registry, release_monitor, webhook_server = create_components(
-            [release_config1, release_config2])
+            [release_config1, release_config2]
+        )
 
         # When
-        with PackageCollector(config, json_loader, source_registry, release_monitor,
-                              webhook_server) as package_collector:
+        with PackageCollector(
+            config, json_loader, source_registry, release_monitor, webhook_server
+        ) as package_collector:
             Thread(target=package_collector.run).start()
 
             # Then
             wait_for_assertion(1, release_monitor.check_all.assert_called_once)
 
-            source_registry.register.assert_has_calls([
-                mock.call(release_config1),
-                mock.call(release_config2)
-            ])
+            source_registry.register.assert_has_calls([mock.call(release_config1), mock.call(release_config2)])
 
             release_monitor.start.assert_called_once()
             webhook_server.start.assert_called_once()
@@ -50,8 +49,9 @@ class PackageCollectorTest(TestCase):
         config, json_loader, source_registry, release_monitor, webhook_server = create_components(enable_webhook=False)
 
         # When
-        with PackageCollector(config, json_loader, source_registry, release_monitor,
-                              webhook_server) as package_collector:
+        with PackageCollector(
+            config, json_loader, source_registry, release_monitor, webhook_server
+        ) as package_collector:
             Thread(target=package_collector.run).start()
 
             # Then
@@ -65,12 +65,14 @@ class PackageCollectorTest(TestCase):
 
     def test_run_and_shutdown_when_no_initial_collection_and_no_monitoring(self):
         # Given
-        config, json_loader, source_registry, release_monitor, webhook_server = create_components(initial_collect=False,
-                                                                                                  enable_monitor=False)
+        config, json_loader, source_registry, release_monitor, webhook_server = create_components(
+            initial_collect=False, enable_monitor=False
+        )
 
         # When
-        with PackageCollector(config, json_loader, source_registry, release_monitor,
-                              webhook_server) as package_collector:
+        with PackageCollector(
+            config, json_loader, source_registry, release_monitor, webhook_server
+        ) as package_collector:
             Thread(target=package_collector.run).start()
 
             # Then
@@ -83,12 +85,14 @@ class PackageCollectorTest(TestCase):
 
     def test_run_and_shutdown_when_no_webhook_server_and_no_monitoring(self):
         # Given
-        config, json_loader, source_registry, release_monitor, webhook_server = create_components(enable_webhook=False,
-                                                                                                  enable_monitor=False)
+        config, json_loader, source_registry, release_monitor, webhook_server = create_components(
+            enable_webhook=False, enable_monitor=False
+        )
 
         # When
-        with PackageCollector(config, json_loader, source_registry, release_monitor,
-                              webhook_server) as package_collector:
+        with PackageCollector(
+            config, json_loader, source_registry, release_monitor, webhook_server
+        ) as package_collector:
             package_collector.run()
 
             # Then
@@ -101,8 +105,12 @@ class PackageCollectorTest(TestCase):
         webhook_server.shutdown.assert_not_called()
 
 
-def create_components(config_list: list[ReleaseConfig] = None,
-                      initial_collect: bool = True, enable_monitor: bool = True, enable_webhook: bool = True):
+def create_components(
+    config_list: list[ReleaseConfig] = None,
+    initial_collect: bool = True,
+    enable_monitor: bool = True,
+    enable_webhook: bool = True,
+):
     if config_list is None:
         config_list = []
     config = PackageCollectorConfig('', initial_collect, enable_monitor, enable_webhook)
