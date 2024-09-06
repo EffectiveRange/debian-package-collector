@@ -52,8 +52,7 @@ jobs:
         uses: EffectiveRange/python-package-github-action@v2
         with:
           debian-dist-type: 'fpm-deb'
-      - name: Create systemd service unit file
-        run: make service TAG=${GITHUB_REF#refs/tags/}
+          post-build-command: 'make service TAG=${GITHUB_REF#refs/tags/}'
       - name: Set up QEMU for multi-architecture builds
         uses: docker/setup-qemu-action@v3
       - name: Setup Docker buildx for multi-architecture builds
