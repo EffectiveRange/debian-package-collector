@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2024 Attila Gombos <attila.gombos@effective-range.com>
 # SPDX-License-Identifier: MIT
 
+from threading import Lock
 from typing import Optional
 
 from context_logger import get_logger
@@ -31,24 +32,30 @@ class ReleaseSource(IReleaseSource):
         self._repository_provider = repository_provider
         self._repository: Optional[Repository] = None
         self._release: Optional[GitRelease] = None
+        self._lock = Lock()
 
     def get_config(self) -> ReleaseConfig:
         return self._config
 
     def get_release(self) -> Optional[GitRelease]:
-        return self._release
+        with self._lock:
+            return self._release
 
     def check_latest_release(self) -> bool:
-        if latest_release := self._get_release():
-            if not self._release or self._release.tag_name != latest_release.tag_name:
-                old_tag = self._release.tag_name if self._release else None
-                log.info(
-                    'New release found', repo=self._config.full_name, old_tag=old_tag, new_tag=latest_release.tag_name
-                )
-                self._release = latest_release
-                return True
+        with self._lock:
+            if latest_release := self._get_release():
+                if not self._release or self._release.tag_name != latest_release.tag_name:
+                    old_tag = self._release.tag_name if self._release else None
+                    log.info(
+                        'New release found',
+                        repo=self._config.full_name,
+                        old_tag=old_tag,
+                        new_tag=latest_release.tag_name,
+                    )
+                    self._release = latest_release
+                    return True
 
-        return False
+            return False
 
     def _get_release(self) -> Optional[GitRelease]:
         try:
