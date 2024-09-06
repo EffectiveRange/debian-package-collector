@@ -2,10 +2,11 @@
 # SPDX-FileCopyrightText: 2024 Attila Gombos <attila.gombos@effective-range.com>
 # SPDX-License-Identifier: MIT
 
+from common_utility import IReusableTimer
 from context_logger import get_logger
 from package_downloader import IAssetDownloader
 
-from package_collector import IReusableTimer, ISourceRegistry, IReleaseSource
+from package_collector import ISourceRegistry, IReleaseSource
 
 log = get_logger('ReleaseMonitor')
 
@@ -27,8 +28,13 @@ class IReleaseMonitor(object):
 
 class ReleaseMonitor(IReleaseMonitor):
 
-    def __init__(self, source_registry: ISourceRegistry, asset_downloader: IAssetDownloader,
-                 monitor_timer: IReusableTimer, monitor_interval: int = 600) -> None:
+    def __init__(
+        self,
+        source_registry: ISourceRegistry,
+        asset_downloader: IAssetDownloader,
+        monitor_timer: IReusableTimer,
+        monitor_interval: int = 600,
+    ) -> None:
         self._source_registry = source_registry
         self._asset_downloader = asset_downloader
         self._monitor_timer = monitor_timer

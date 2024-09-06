@@ -7,17 +7,26 @@ import hashlib
 import hmac
 import json
 import os
+from dataclasses import dataclass
 from threading import Thread
 from typing import Any, Optional
 
+from common_utility import IFileDownloader, IReusableTimer
 from context_logger import get_logger
 from flask import Flask, request, Response, abort
-from package_downloader import IFileDownloader, ReleaseConfig
+from package_downloader import IAssetDownloader
 from waitress.server import create_server
 
-from package_collector import ISourceRegistry
+from package_collector import ISourceRegistry, IReleaseSource
 
 log = get_logger('WebhookServer')
+
+
+@dataclass
+class WebhookServerConfig:
+    port: int
+    secret: str
+    delay: int
 
 
 class IWebhookServer(object):
@@ -34,12 +43,21 @@ class IWebhookServer(object):
 
 class WebhookServer(IWebhookServer):
 
-    def __init__(self, source_registry: ISourceRegistry, file_downloader: IFileDownloader,
-                 port: int, secret: str) -> None:
+    def __init__(
+        self,
+        source_registry: ISourceRegistry,
+        file_downloader: IFileDownloader,
+        asset_downloader: IAssetDownloader,
+        delay_timer: IReusableTimer,
+        config: WebhookServerConfig,
+    ) -> None:
         self._source_registry = source_registry
         self._file_downloader = file_downloader
-        self._port = port
-        self._secret = self._get_secret(secret)
+        self._asset_downloader = asset_downloader
+        self._delay_timer = delay_timer
+        self._port = config.port
+        self._secret = self._get_secret(config.secret)
+        self._delay = config.delay
         self._app = Flask(__name__)
         self._server = create_server(self._app, listen=f'*:{self._port}')
         self._thread = Thread(target=self._start_server)
@@ -59,6 +77,7 @@ class WebhookServer(IWebhookServer):
 
     def shutdown(self) -> None:
         log.info('Shutting down')
+        self._delay_timer.cancel()
         self._server.close()
         self._thread.join()
         self._is_running = False
@@ -115,33 +134,46 @@ class WebhookServer(IWebhookServer):
         repo_name = payload['repository']['full_name']
         release = payload['release']
         action = payload['action']
+        tag = release['tag_name']
 
-        log.info('Processing release', repo=repo_name, action=action, tag=release['tag_name'])
+        log.info('Processing release', repo=repo_name, action=action, tag=tag)
 
         if self._source_registry.is_registered(repo_name):
             source = self._source_registry.get(repo_name)
 
-            return self._download_assets(source.get_config(), release['assets'])
+            assets = release['assets']
+
+            log.info('Available assets', assets=[asset['name'] for asset in assets])
+
+            if assets:
+                self._delay_timer.start(0, self._download_asset_from_url, args=[source, assets])
+                return Response(status=200)
+            else:
+                log.warn(
+                    'No assets found in request, retrying using the API with a delay',
+                    repo=repo_name,
+                    tag=tag,
+                    delay=self._delay,
+                )
+                self._delay_timer.start(self._delay, self._download_asset_from_api, args=[source])
+                return Response(status=200)
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)
             return Response(status=204)
 
-    def _download_assets(self, config: ReleaseConfig, assets: list[dict[str, Any]]) -> Response:
-        log.info('Available assets', assets=[asset['name'] for asset in assets])
-
+    def _download_asset_from_url(self, source: IReleaseSource, assets: list[dict[str, Any]]) -> None:
+        config = source.get_config()
         any_match = False
 
         for asset in assets:
             if fnmatch.fnmatch(asset['name'], config.matcher):
                 any_match = True
                 log.info('Found matching asset', release=config, asset=asset['name'])
-                Thread(target=self._download_asset, args=[asset, config.raw_token]).start()
+
+                self._download_asset(asset, config.raw_token)
 
         if not any_match:
             log.warn('No matching assets found', release=config)
-            return Response(status=204)
-        else:
-            return Response(status=200)
 
     def _download_asset(self, asset: dict[str, Any], token: Optional[str] = None) -> None:
         log.debug('Downloading asset', asset=asset['name'])
@@ -152,3 +184,9 @@ class WebhookServer(IWebhookServer):
             headers['Authorization'] = f'token {token}'
 
         self._file_downloader.download(asset['url'], asset['name'], headers)
+
+    def _download_asset_from_api(self, source: IReleaseSource) -> None:
+        config = source.get_config()
+        release = source.get_release()
+        if release:
+            self._asset_downloader.download(config, release)

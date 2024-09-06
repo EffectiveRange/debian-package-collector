@@ -1,3 +1,7 @@
+
+[![Test and Release](https://github.com/EffectiveRange/debian-package-collector/actions/workflows/test_and_release.yml/badge.svg)](https://github.com/EffectiveRange/debian-package-collector/actions/workflows/test_and_release.yml)
+[![Coverage badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/EffectiveRange/debian-package-collector/python-coverage-comment-action-data/endpoint.json)](https://htmlpreview.github.io/?https://github.com/EffectiveRange/debian-package-collector/blob/python-coverage-comment-action-data/htmlcov/index.html)
+
 # debian-package-collector
 
 Debian package collector to download .deb packages from new releases
@@ -43,9 +47,9 @@ pip install .
 
 ### Command line reference
 
-```commandline
+```bash
 $ bin/debian-package-collector.py --help
-usage: debian-package-collector.py [-h] [-f LOG_FILE] [-l LOG_LEVEL] [-d DOWNLOAD] [-i INTERVAL] [-p PORT] [-s SECRET] [-t TOKEN] [--initial | --no-initial] [--monitor | --no-monitor] [--webhook | --no-webhook] release_config
+usage: debian-package-collector.py [-h] [-f LOG_FILE] [-l LOG_LEVEL] [-d DOWNLOAD] [-i INTERVAL] [-p PORT] [-s SECRET] [-t TOKEN] [-D DELAY] [--initial | --no-initial] [--monitor | --no-monitor] [--webhook | --no-webhook] release_config
 
 positional arguments:
   release_config        release config JSON file path or URL
@@ -64,7 +68,9 @@ options:
   -s SECRET, --secret SECRET
                         webhook secret to verify requests, supports environment variables with $ (default: None)
   -t TOKEN, --token TOKEN
-                        GitHub token to use if not specified in config, supports environment variables with $ (default: None)
+                        global token to use if not specified in config, supports environment variables with $ (default: None)
+  -D DELAY, --delay DELAY
+                        download delay in seconds after webhook request (default: 10)
   --initial, --no-initial
                         enable initial collection (default: True)
   --monitor, --no-monitor
@@ -75,7 +81,7 @@ options:
 
 ### Example
 
-```commandline
+```bash
 $ bin/debian-package-collector.py ~/config/release-config.json
 ```
 
@@ -96,7 +102,7 @@ Example configuration (example `release-config.json` config file content):
 
 Output:
 
-```commandline
+```bash
 2024-07-16T06:09:01.076743Z [info     ] Starting package collector     [PackageCollectorApp] app_version=1.0.3 application=debian-package-collector arguments={'log_file': '/var/log/effective-range/debian-package-collector/debian-package-collector.log', 'log_level': 'info', 'download': '/tmp/packages', 'interval': 600, 'port': 8080, 'secret': None, 'token': None, 'initial': True, 'monitor': True, 'webhook': True, 'release_config': 'build/release-config.json'} hostname=Legion7iPro
 2024-07-16T06:09:01.080167Z [info     ] Local file path provided, skipping download [FileDownloader] app_version=1.0.3 application=debian-package-collector file=/home/attilagombos/EffectiveRange/debian-package-collector/build/release-config.json hostname=Legion7iPro
 2024-07-16T06:09:01.081313Z [info     ] Registered release source for repository [SourceRegistry] app_version=1.0.3 application=debian-package-collector config=ReleaseConfig(EffectiveRange/wifi-manager.git, matcher=*.deb, has_token=False) hostname=Legion7iPro repo=EffectiveRange/wifi-manager

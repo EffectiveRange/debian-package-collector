@@ -9,11 +9,18 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace, B
 from signal import signal, SIGINT, SIGTERM
 from typing import Any
 
+from common_utility import SessionProvider, FileDownloader, JsonLoader, ReusableTimer
 from context_logger import get_logger, setup_logging
-from package_downloader import SessionProvider, RepositoryProvider, FileDownloader, AssetDownloader, JsonLoader
+from package_downloader import RepositoryProvider, AssetDownloader
 
-from package_collector import PackageCollector, SourceRegistry, ReleaseMonitor, ReusableTimer, WebhookServer, \
-    PackageCollectorConfig
+from package_collector import (
+    PackageCollector,
+    SourceRegistry,
+    ReleaseMonitor,
+    WebhookServer,
+    PackageCollectorConfig,
+    WebhookServerConfig,
+)
 
 log = get_logger('PackageCollectorApp')
 
@@ -34,7 +41,8 @@ def main() -> None:
 
     reusable_timer = ReusableTimer()
     release_monitor = ReleaseMonitor(source_registry, asset_downloader, reusable_timer, arguments.interval)
-    webhook_server = WebhookServer(source_registry, file_downloader, arguments.port, arguments.secret)
+    server_config = WebhookServerConfig(arguments.port, arguments.secret, arguments.delay)
+    webhook_server = WebhookServer(source_registry, file_downloader, asset_downloader, reusable_timer, server_config)
     config_path = file_downloader.download(arguments.release_config, skip_if_exists=False)
     config = PackageCollectorConfig(config_path, arguments.initial, arguments.monitor, arguments.webhook)
     json_loader = JsonLoader()
@@ -53,16 +61,24 @@ def main() -> None:
 
 def _get_arguments() -> Namespace:
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-f', '--log-file', help='log file path',
-                        default='/var/log/effective-range/debian-package-collector/debian-package-collector.log')
+    parser.add_argument(
+        '-f',
+        '--log-file',
+        help='log file path',
+        default='/var/log/effective-range/debian-package-collector/debian-package-collector.log',
+    )
     parser.add_argument('-l', '--log-level', help='logging level', default='info')
     parser.add_argument('-d', '--download', help='package download location', default='/tmp/packages')
     parser.add_argument('-i', '--interval', help='release monitor interval in seconds', type=int, default=600)
     parser.add_argument('-p', '--port', help='webhook server port to listen on', type=int, default=8080)
-    parser.add_argument('-s', '--secret',
-                        help='webhook secret to verify requests, supports environment variables with $')
-    parser.add_argument('-t', '--token',
-                        help='global token to use if not specified in config, supports environment variables with $')
+    parser.add_argument(
+        '-s', '--secret', help='webhook secret to verify requests, supports environment variables with $'
+    )
+    parser.add_argument(
+        '-t', '--token', help='global token to use if not specified in config, supports environment variables with $'
+    )
+    parser.add_argument('-D', '--delay', help='download delay in seconds after webhook request', type=int, default=10)
+
     parser.add_argument('--initial', help='enable initial collection', action=BooleanOptionalAction, default=True)
     parser.add_argument('--monitor', help='enable periodic monitoring', action=BooleanOptionalAction, default=True)
     parser.add_argument('--webhook', help='enable the webhook server', action=BooleanOptionalAction, default=True)

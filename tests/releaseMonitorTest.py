@@ -2,11 +2,12 @@ import unittest
 from unittest import TestCase, mock
 from unittest.mock import MagicMock
 
+from common_utility import IReusableTimer
 from context_logger import setup_logging
 from github.GitRelease import GitRelease
 from package_downloader import IAssetDownloader, ReleaseConfig
 
-from package_collector import ReleaseMonitor, ReleaseSource, IReusableTimer, ISourceRegistry, IReleaseSource
+from package_collector import ReleaseMonitor, ReleaseSource, ISourceRegistry, IReleaseSource
 
 
 class ReleaseMonitorTest(TestCase):
@@ -41,9 +42,7 @@ class ReleaseMonitorTest(TestCase):
 
         # Then
         monitor_timer.restart.assert_called_once()
-        asset_downloader.download.assert_has_calls([
-            mock.call(source2.config, source2.release)
-        ])
+        asset_downloader.download.assert_has_calls([mock.call(source2.config, source2.release)])
 
     def test_stops_release_monitoring(self):
         # Given
@@ -68,10 +67,9 @@ class ReleaseMonitorTest(TestCase):
         release_monitor.check_all()
 
         # Then
-        asset_downloader.download.assert_has_calls([
-            mock.call(source1.config, source1.release),
-            mock.call(source3.config, source3.release)
-        ])
+        asset_downloader.download.assert_has_calls(
+            [mock.call(source1.config, source1.release), mock.call(source3.config, source3.release)]
+        )
 
     def test_downloads_release_asset_when_new_release_found(self):
         # Given

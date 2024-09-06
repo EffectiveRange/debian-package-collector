@@ -7,12 +7,13 @@ from typing import Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
+from common_utility import IFileDownloader, ReusableTimer
 from context_logger import setup_logging
 from github.GitRelease import GitRelease
-from package_downloader import IFileDownloader, ReleaseConfig
+from package_downloader import ReleaseConfig, IAssetDownloader
+from test_utility import wait_for_assertion
 
-from package_collector import WebhookServer, IReleaseSource, ISourceRegistry, ReleaseSource
-from tests import wait_for_assertion
+from package_collector import WebhookServer, IReleaseSource, ISourceRegistry, ReleaseSource, WebhookServerConfig
 
 
 class WebhookServerTest(TestCase):
@@ -28,10 +29,10 @@ class WebhookServerTest(TestCase):
 
     def test_startup_and_shutdown(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
         # When
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             # Then
@@ -42,18 +43,15 @@ class WebhookServerTest(TestCase):
 
     def test_returns_403_when_no_signature(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
             release = create_release()
 
-            headers = {
-                'Content-Type': 'application/json',
-                'X-GitHub-Event': 'release'
-            }
+            headers = {'Content-Type': 'application/json', 'X-GitHub-Event': 'release'}
 
             # When
             response = client.post('/webhook', json=release, headers=headers)
@@ -63,9 +61,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_403_when_not_supported_algorithm(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -74,7 +72,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': 'sha128=abcdef',
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
@@ -85,9 +83,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_403_when_invalid_signature(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -96,7 +94,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('wrong_secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
@@ -107,9 +105,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_204_when_not_release(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -118,7 +116,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('secret', release),
-                'X-GitHub-Event': 'push'
+                'X-GitHub-Event': 'push',
             }
 
             # When
@@ -129,9 +127,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_204_when_action_filtered_out(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -141,7 +139,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
@@ -153,9 +151,10 @@ class WebhookServerTest(TestCase):
     def test_returns_200_and_downloads_asset_when_release_published(self):
         # Given
         source = create_source()
-        source_registry, file_downloader = create_components(source)
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, 0, '$TEST_SECRET') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -164,25 +163,57 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('test_secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
             # Then
-            wait_for_assertion(1, file_downloader.download.assert_called_once_with,
-                               'https://example.com/file1.deb', 'file1.deb',
-                               {'Accept': 'application/octet-stream', 'Authorization': 'token test_token'})
+            wait_for_assertion(
+                1,
+                file_downloader.download.assert_called_once_with,
+                'https://example.com/file1.deb',
+                'file1.deb',
+                {'Accept': 'application/octet-stream', 'Authorization': 'token test_token'},
+            )
+
+        self.assertEqual(200, response.status_code)
+
+    def test_returns_200_and_downloads_asset_using_api_when_no_assets_in_release(self):
+        # Given
+        source = create_source()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        config.secret = '$TEST_SECRET'
+
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+            release['release']['assets'] = []
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release',
+            }
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+            # Then
+            wait_for_assertion(2, asset_downloader.download.assert_called_once_with, source.config, source.release)
 
         self.assertEqual(200, response.status_code)
 
     def test_returns_200_when_release_released(self):
         # Given
         source = create_source()
-        source_registry, file_downloader = create_components(source)
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, 0, '$TEST_SECRET') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -192,7 +223,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('test_secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
@@ -204,9 +235,10 @@ class WebhookServerTest(TestCase):
     def test_returns_200_when_release_edited(self):
         # Given
         source = create_source()
-        source_registry, file_downloader = create_components(source)
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, 0, '$TEST_SECRET') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -216,7 +248,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('test_secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
@@ -227,9 +259,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_204_and_skips_download_when_repo_not_registered(self):
         # Given
-        source_registry, file_downloader = create_components()
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -238,7 +270,7 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
@@ -247,13 +279,13 @@ class WebhookServerTest(TestCase):
         # Then
         self.assertEqual(204, response.status_code)
 
-    def test_returns_204_when_no_matching_asset_found(self):
+    def test_returns_200_when_no_matching_asset_found(self):
         # Given
         source = create_source()
         source.config.matcher = '*.rpm'
-        source_registry, file_downloader = create_components(source)
+        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
 
-        with WebhookServer(source_registry, file_downloader, 0, 'secret') as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -262,31 +294,21 @@ class WebhookServerTest(TestCase):
             headers = {
                 'Content-Type': 'application/json',
                 'X-Hub-Signature-256': create_signature('secret', release),
-                'X-GitHub-Event': 'release'
+                'X-GitHub-Event': 'release',
             }
 
             # When
             response = client.post('/webhook', json=release, headers=headers)
 
         # Then
-        self.assertEqual(204, response.status_code)
+        self.assertEqual(200, response.status_code)
 
 
 def create_release() -> dict[str, Any]:
     return {
         'action': 'published',
-        'release': {
-            'tag_name': '1.0.0',
-            'assets': [
-                {
-                    'name': 'file1.deb',
-                    'url': 'https://example.com/file1.deb'
-                }
-            ]
-        },
-        'repository': {
-            'full_name': 'owner1/repo1'
-        },
+        'release': {'tag_name': '1.0.0', 'assets': [{'name': 'file1.deb', 'url': 'https://example.com/file1.deb'}]},
+        'repository': {'full_name': 'owner1/repo1'},
     }
 
 
@@ -310,7 +332,10 @@ def create_components(source: IReleaseSource = None):
     source_registry.get.return_value = source
     source_registry.is_registered.return_value = source is not None
     file_downloader = MagicMock(spec=IFileDownloader)
-    return source_registry, file_downloader
+    asset_downloader = MagicMock(spec=IAssetDownloader)
+    delay_timer = ReusableTimer()
+    server_config = WebhookServerConfig(0, 'secret', 1)
+    return source_registry, file_downloader, asset_downloader, delay_timer, server_config
 
 
 if __name__ == '__main__':

@@ -1,4 +1,3 @@
-from .reusableTimer import *
 from .releaseSource import *
 from .sourceRegistry import *
 from .releaseMonitor import *

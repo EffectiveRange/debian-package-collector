@@ -5,8 +5,9 @@
 from dataclasses import dataclass
 from typing import Any
 
+from common_utility import IJsonLoader
 from context_logger import get_logger
-from package_downloader import IJsonLoader, ReleaseConfig
+from package_downloader import ReleaseConfig
 
 from package_collector import IReleaseMonitor, IWebhookServer, ISourceRegistry
 
@@ -23,8 +24,14 @@ class PackageCollectorConfig:
 
 class PackageCollector(object):
 
-    def __init__(self, config: PackageCollectorConfig, json_loader: IJsonLoader, source_registry: ISourceRegistry,
-                 release_monitor: IReleaseMonitor, webhook_server: IWebhookServer):
+    def __init__(
+        self,
+        config: PackageCollectorConfig,
+        json_loader: IJsonLoader,
+        source_registry: ISourceRegistry,
+        release_monitor: IReleaseMonitor,
+        webhook_server: IWebhookServer,
+    ):
         self._config = config
         self._json_loader = json_loader
         self._source_registry = source_registry

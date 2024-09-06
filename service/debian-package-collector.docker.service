@@ -15,7 +15,7 @@ ExecStart=/usr/bin/docker run --net=host --name=debian-package-collector \
     -v /opt/debs:/opt/debs \
     -v /var/log/effective-range/debian-package-collector:/var/log/effective-range/debian-package-collector \
     effectiverange/debian-package-collector:${TAG} \
-    -- https://raw.githubusercontent.com/EffectiveRange/infrastructure-configuration/main/aptrepo/collector/release-config.json \
+    -- https://raw.githubusercontent.com/EffectiveRange/infrastructure-configuration/main/aptrepo/collector/config/release-config.json \
     --download /opt/debs \
     --interval 3600 \
     --token ${GITHUB_TOKEN} \
