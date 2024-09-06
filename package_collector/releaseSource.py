@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2024 Attila Gombos <attila.gombos@effective-range.com>
 # SPDX-License-Identifier: MIT
 
-from typing import Optional, Tuple
+from typing import Optional
 
 from context_logger import get_logger
 from github.GitRelease import GitRelease
@@ -18,12 +18,6 @@ class IReleaseSource(object):
         raise NotImplementedError()
 
     def get_release(self) -> Optional[GitRelease]:
-        raise NotImplementedError()
-
-    def get_config_and_release(self) -> Tuple[ReleaseConfig, Optional[GitRelease]]:
-        raise NotImplementedError()
-
-    def check_release(self) -> bool:
         raise NotImplementedError()
 
     def check_latest_release(self) -> bool:
@@ -48,8 +42,9 @@ class ReleaseSource(IReleaseSource):
         if latest_release := self._get_release():
             if not self._release or self._release.tag_name != latest_release.tag_name:
                 old_tag = self._release.tag_name if self._release else None
-                log.info('New release found',
-                         repo=self._config.full_name, old_tag=old_tag, new_tag=latest_release.tag_name)
+                log.info(
+                    'New release found', repo=self._config.full_name, old_tag=old_tag, new_tag=latest_release.tag_name
+                )
                 self._release = latest_release
                 return True
 
