@@ -8,10 +8,10 @@ import hmac
 import json
 import os
 from dataclasses import dataclass
-from threading import Thread
+from threading import Thread, Timer
 from typing import Any, Optional
 
-from common_utility import IFileDownloader, IReusableTimer
+from common_utility import IFileDownloader
 from context_logger import get_logger
 from flask import Flask, request, Response, abort
 from package_downloader import IAssetDownloader
@@ -48,13 +48,11 @@ class WebhookServer(IWebhookServer):
         source_registry: ISourceRegistry,
         file_downloader: IFileDownloader,
         asset_downloader: IAssetDownloader,
-        delay_timer: IReusableTimer,
         config: WebhookServerConfig,
     ) -> None:
         self._source_registry = source_registry
         self._file_downloader = file_downloader
         self._asset_downloader = asset_downloader
-        self._delay_timer = delay_timer
         self._port = config.port
         self._secret = self._get_secret(config.secret)
         self._delay = config.delay
@@ -77,7 +75,6 @@ class WebhookServer(IWebhookServer):
 
     def shutdown(self) -> None:
         log.info('Shutting down')
-        self._delay_timer.cancel()
         self._server.close()
         self._thread.join()
         self._is_running = False
@@ -146,7 +143,7 @@ class WebhookServer(IWebhookServer):
             log.info('Available assets', assets=[asset['name'] for asset in assets])
 
             if assets:
-                self._delay_timer.start(0, self._download_asset_from_url, args=[source, assets])
+                Thread(target=self._download_asset_from_url, args=[source, assets]).start()
                 return Response(status=200)
             else:
                 log.warn(
@@ -155,7 +152,7 @@ class WebhookServer(IWebhookServer):
                     tag=tag,
                     delay=self._delay,
                 )
-                self._delay_timer.start(self._delay, self._download_asset_from_api, args=[source])
+                Timer(self._delay, self._download_asset_from_api, args=[source]).start()
                 return Response(status=200)
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)

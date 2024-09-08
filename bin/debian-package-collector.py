@@ -42,7 +42,7 @@ def main() -> None:
     reusable_timer = ReusableTimer()
     release_monitor = ReleaseMonitor(source_registry, asset_downloader, reusable_timer, arguments.interval)
     server_config = WebhookServerConfig(arguments.port, arguments.secret, arguments.delay)
-    webhook_server = WebhookServer(source_registry, file_downloader, asset_downloader, reusable_timer, server_config)
+    webhook_server = WebhookServer(source_registry, file_downloader, asset_downloader, server_config)
     config_path = file_downloader.download(arguments.release_config, skip_if_exists=False)
     config = PackageCollectorConfig(config_path, arguments.initial, arguments.monitor, arguments.webhook)
     json_loader = JsonLoader()

@@ -7,7 +7,7 @@ from typing import Any
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from common_utility import IFileDownloader, ReusableTimer
+from common_utility import IFileDownloader
 from context_logger import setup_logging
 from github.GitRelease import GitRelease
 from package_downloader import ReleaseConfig, IAssetDownloader
@@ -29,10 +29,10 @@ class WebhookServerTest(TestCase):
 
     def test_startup_and_shutdown(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
         # When
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             # Then
@@ -43,9 +43,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_403_when_no_signature(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -61,9 +61,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_403_when_not_supported_algorithm(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -83,9 +83,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_403_when_invalid_signature(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -105,9 +105,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_204_when_not_release(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -127,9 +127,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_204_when_action_filtered_out(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -151,10 +151,10 @@ class WebhookServerTest(TestCase):
     def test_returns_200_and_downloads_asset_when_release_published(self):
         # Given
         source = create_source()
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        source_registry, file_downloader, asset_downloader, config = create_components(source)
         config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -183,10 +183,10 @@ class WebhookServerTest(TestCase):
     def test_returns_200_and_downloads_asset_using_api_when_no_assets_in_release(self):
         # Given
         source = create_source()
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        source_registry, file_downloader, asset_downloader, config = create_components(source)
         config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -211,10 +211,10 @@ class WebhookServerTest(TestCase):
     def test_returns_200_when_release_released(self):
         # Given
         source = create_source()
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        source_registry, file_downloader, asset_downloader, config = create_components(source)
         config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -236,10 +236,10 @@ class WebhookServerTest(TestCase):
     def test_returns_200_when_release_edited(self):
         # Given
         source = create_source()
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        source_registry, file_downloader, asset_downloader, config = create_components(source)
         config.secret = '$TEST_SECRET'
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -260,9 +260,9 @@ class WebhookServerTest(TestCase):
 
     def test_returns_204_and_skips_download_when_repo_not_registered(self):
         # Given
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components()
+        source_registry, file_downloader, asset_downloader, config = create_components()
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -284,9 +284,9 @@ class WebhookServerTest(TestCase):
         # Given
         source = create_source()
         source.config.matcher = '*.rpm'
-        source_registry, file_downloader, asset_downloader, delay_timer, config = create_components(source)
+        source_registry, file_downloader, asset_downloader, config = create_components(source)
 
-        with WebhookServer(source_registry, file_downloader, asset_downloader, delay_timer, config) as webhook_server:
+        with WebhookServer(source_registry, file_downloader, asset_downloader, config) as webhook_server:
             webhook_server.start()
 
             client = webhook_server._app.test_client()
@@ -334,9 +334,8 @@ def create_components(source: IReleaseSource = None):
     source_registry.is_registered.return_value = source is not None
     file_downloader = MagicMock(spec=IFileDownloader)
     asset_downloader = MagicMock(spec=IAssetDownloader)
-    delay_timer = ReusableTimer()
     server_config = WebhookServerConfig(0, 'secret', 1)
-    return source_registry, file_downloader, asset_downloader, delay_timer, server_config
+    return source_registry, file_downloader, asset_downloader, server_config
 
 
 if __name__ == '__main__':
