@@ -3,8 +3,9 @@ from threading import Thread
 from unittest import TestCase, mock
 from unittest.mock import MagicMock
 
+from common_utility.jsonLoader import IJsonLoader
 from context_logger import setup_logging
-from package_downloader import IJsonLoader, ReleaseConfig
+from package_downloader import ReleaseConfig
 from test_utility import wait_for_assertion
 
 from package_collector import PackageCollector, PackageCollectorConfig, ISourceRegistry, IReleaseMonitor, IWebhookServer

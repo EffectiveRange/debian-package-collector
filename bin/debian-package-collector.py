@@ -9,7 +9,8 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace, B
 from signal import signal, SIGINT, SIGTERM
 from typing import Any
 
-from common_utility import SessionProvider, FileDownloader, JsonLoader, ReusableTimer
+from common_utility import SessionProvider, FileDownloader, ReusableTimer
+from common_utility.jsonLoader import JsonLoader
 from context_logger import get_logger, setup_logging
 from package_downloader import RepositoryProvider, AssetDownloader
 
