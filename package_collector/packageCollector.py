@@ -5,7 +5,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from common_utility import IJsonLoader
+from common_utility.jsonLoader import IJsonLoader
 from context_logger import get_logger
 from package_downloader import ReleaseConfig
 
