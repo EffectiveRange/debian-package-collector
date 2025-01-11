@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from context_logger import setup_logging
 from github.GitRelease import GitRelease
+from github.GitReleaseAsset import GitReleaseAsset
 from github.Repository import Repository
 from package_downloader import IRepositoryProvider, ReleaseConfig
 
@@ -74,6 +75,63 @@ class ReleaseSourceTest(TestCase):
         # Then
         self.assertTrue(result)
 
+    def test_returns_false_when_new_release_found_and_no_assets(self):
+        # Given
+        release1 = create_release('1.0.0')
+        release2 = create_release('1.1.0')
+        release2.assets = []
+        config, repository_provider, repository = create_components(release1)
+        release_source = ReleaseSource(config, repository_provider)
+
+        release_source.check_latest_release()
+
+        repository.get_latest_release.return_value = release2
+
+        # When
+        result = release_source.check_latest_release()
+
+        # Then
+        self.assertFalse(result)
+
+    def test_returns_false_when_same_release(self):
+        # Given
+        release1 = create_release('1.1.0')
+        release2 = create_release('1.1.0')
+        config, repository_provider, repository = create_components(release1)
+        release_source = ReleaseSource(config, repository_provider)
+
+        release_source.check_latest_release()
+
+        repository.get_latest_release.return_value = release2
+
+        # When
+        result = release_source.check_latest_release()
+
+        # Then
+        self.assertFalse(result)
+
+    def test_returns_true_when_same_release_and_new_assets_found(self):
+        # Given
+        release1 = create_release('1.1.0')
+        release2 = create_release('1.1.0')
+
+        new_asset = MagicMock(spec=GitReleaseAsset)
+        new_asset.name = 'asset3'
+        release2.assets.append(new_asset)
+
+        config, repository_provider, repository = create_components(release1)
+        release_source = ReleaseSource(config, repository_provider)
+
+        release_source.check_latest_release()
+
+        repository.get_latest_release.return_value = release2
+
+        # When
+        result = release_source.check_latest_release()
+
+        # Then
+        self.assertTrue(result)
+
     def test_returns_config(self):
         # Given
         release = create_release('1.0.0')
@@ -104,6 +162,11 @@ class ReleaseSourceTest(TestCase):
 def create_release(tag_name):
     release = MagicMock(spec=GitRelease)
     release.tag_name = tag_name
+    asset1 = MagicMock(spec=GitReleaseAsset)
+    asset1.name = 'asset1'
+    asset2 = MagicMock(spec=GitReleaseAsset)
+    asset2.name = 'asset2'
+    release.assets = [asset1, asset2]
     return release
 
 
