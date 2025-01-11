@@ -184,7 +184,5 @@ class WebhookServer(IWebhookServer):
 
     def _download_asset_from_api(self, source: IReleaseSource) -> None:
         if source.check_latest_release():
-            config = source.get_config()
-            release = source.get_release()
-            if release:
-                self._asset_downloader.download(config, release)
+            if release := source.get_release():
+                self._asset_downloader.download(source.get_config(), release)

@@ -44,18 +44,42 @@ class ReleaseSource(IReleaseSource):
     def check_latest_release(self) -> bool:
         with self._lock:
             if latest_release := self._get_release():
-                if not self._release or self._release.tag_name != latest_release.tag_name:
-                    old_tag = self._release.tag_name if self._release else None
-                    log.info(
-                        'New release found',
-                        repo=self._config.full_name,
-                        old_tag=old_tag,
-                        new_tag=latest_release.tag_name,
-                    )
+                current_tag = self._release.tag_name if self._release else None
+                latest_tag = latest_release.tag_name
+                repo_name = self._config.full_name
+
+                if not current_tag:
+                    log.info('Initial release', repo=repo_name, tag=latest_tag)
+                    update = True
+                elif current_tag != latest_tag:
+                    log.info('New release found', repo=repo_name, old_tag=current_tag, new_tag=latest_tag)
+                    update = True
+                else:
+                    update = self._check_for_new_assets(latest_release)
+
+                if update:
                     self._release = latest_release
-                    return True
+                    return self._check_for_any_assets(latest_release)
 
             return False
+
+    def _check_for_new_assets(self, release: GitRelease) -> bool:
+        current_assets = [asset.name for asset in self._release.assets] if self._release else []
+        latest_assets = [asset.name for asset in release.assets]
+        new_assets = list(set(latest_assets) - set(current_assets))
+
+        if new_assets:
+            log.info('New assets for release', repo=self._config.full_name, tag=release.tag_name, new_assets=new_assets)
+            return True
+
+        return False
+
+    def _check_for_any_assets(self, release: GitRelease) -> bool:
+        if not release.assets:
+            log.warning('No assets for release', repo=self._config.full_name, tag=release.tag_name)
+            return False
+
+        return True
 
     def _get_release(self) -> Optional[GitRelease]:
         try:
