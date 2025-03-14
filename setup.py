@@ -8,6 +8,7 @@ setup(
     author_email='info@effective-range.com',
     packages=['package_collector'],
     scripts=['bin/debian-package-collector.py'],
+    data_files=[('config', ['config/debian-package-collector.conf'])],
     install_requires=[
         'flask',
         'waitress',

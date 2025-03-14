@@ -16,7 +16,7 @@ log = get_logger('PackageCollector')
 
 @dataclass
 class PackageCollectorConfig:
-    config_path: str
+    release_config_path: str
     initial_collect: bool
     enable_monitor: bool
     enable_webhook: bool
@@ -45,7 +45,7 @@ class PackageCollector(object):
         self.shutdown()
 
     def run(self) -> None:
-        config_list = self._json_loader.load_list(self._config.config_path, ReleaseConfig)
+        config_list = self._json_loader.load_list(self._config.release_config_path, ReleaseConfig)
 
         for config in config_list:
             self._source_registry.register(config)
