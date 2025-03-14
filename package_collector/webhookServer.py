@@ -2,16 +2,15 @@
 # SPDX-FileCopyrightText: 2024 Attila Gombos <attila.gombos@effective-range.com>
 # SPDX-License-Identifier: MIT
 
-import fnmatch
 import hashlib
 import hmac
 import json
 import os
 from dataclasses import dataclass
-from threading import Thread, Timer
+from threading import Thread
 from typing import Any, Optional
 
-from common_utility import IFileDownloader
+from common_utility import ReusableTimer, IReusableTimer
 from context_logger import get_logger
 from flask import Flask, request, Response, abort
 from package_downloader import IAssetDownloader
@@ -46,12 +45,10 @@ class WebhookServer(IWebhookServer):
     def __init__(
         self,
         source_registry: ISourceRegistry,
-        file_downloader: IFileDownloader,
         asset_downloader: IAssetDownloader,
         config: WebhookServerConfig,
     ) -> None:
         self._source_registry = source_registry
-        self._file_downloader = file_downloader
         self._asset_downloader = asset_downloader
         self._port = config.port
         self._secret = self._get_secret(config.secret)
@@ -60,6 +57,7 @@ class WebhookServer(IWebhookServer):
         self._server = create_server(self._app, listen=f'*:{self._port}')
         self._thread = Thread(target=self._start_server)
         self._is_running = False
+        self._timers: dict[str, IReusableTimer] = {}
 
         self._set_up_webhook_endpoint()
 
@@ -77,6 +75,10 @@ class WebhookServer(IWebhookServer):
         log.info('Shutting down')
         self._server.close()
         self._thread.join()
+
+        for timer in self._timers.values():
+            timer.cancel()
+
         self._is_running = False
 
     def is_running(self) -> bool:
@@ -143,46 +145,26 @@ class WebhookServer(IWebhookServer):
             log.info('Available assets', assets=[asset['name'] for asset in assets])
 
             if assets:
-                Thread(target=self._download_asset_from_url, args=[source, assets]).start()
+                Thread(target=self._download_asset_from_api, args=[source]).start()
                 return Response(status=200)
             else:
                 log.warn(
-                    'No assets found in request, retrying using the API with a delay',
-                    repo=repo_name,
-                    tag=tag,
-                    delay=self._delay,
+                    'No assets found in request, retrying with a delay', repo=repo_name, tag=tag, delay=self._delay
                 )
-                Timer(self._delay, self._download_asset_from_api, args=[source]).start()
+
+                timer = ReusableTimer()
+                self._timers[repo_name] = timer
+                timer.start(self._delay, self._download_asset_from_api, args=[source])
+
                 return Response(status=200)
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)
             return Response(status=204)
 
-    def _download_asset_from_url(self, source: IReleaseSource, assets: list[dict[str, Any]]) -> None:
-        config = source.get_config()
-        any_match = False
-
-        for asset in assets:
-            if fnmatch.fnmatch(asset['name'], config.matcher):
-                any_match = True
-                log.info('Found matching asset', release=config, asset=asset['name'])
-
-                self._download_asset(asset, config.raw_token)
-
-        if not any_match:
-            log.warn('No matching assets found', release=config)
-
-    def _download_asset(self, asset: dict[str, Any], token: Optional[str] = None) -> None:
-        log.debug('Downloading asset', asset=asset['name'])
-
-        headers = {'Accept': 'application/octet-stream'}
-
-        if token:
-            headers['Authorization'] = f'token {token}'
-
-        self._file_downloader.download(asset['url'], asset['name'], headers)
-
     def _download_asset_from_api(self, source: IReleaseSource) -> None:
         if source.check_latest_release():
             if release := source.get_release():
                 self._asset_downloader.download(source.get_config(), release)
+        else:
+            log.warn('Assets not available yet, retrying', repo=source.get_config().repo, delay=self._delay)
+            self._timers[source.get_config().full_name].restart()

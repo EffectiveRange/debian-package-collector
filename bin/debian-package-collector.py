@@ -5,11 +5,13 @@
 # SPDX-License-Identifier: MIT
 
 import os
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace, BooleanOptionalAction
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, BooleanOptionalAction
+from collections import OrderedDict
+from pathlib import Path
 from signal import signal, SIGINT, SIGTERM
 from typing import Any
 
-from common_utility import SessionProvider, FileDownloader, ReusableTimer
+from common_utility import SessionProvider, FileDownloader, ReusableTimer, ConfigLoader
 from common_utility.jsonLoader import JsonLoader
 from context_logger import get_logger, setup_logging
 from package_downloader import RepositoryProvider, AssetDownloader
@@ -23,35 +25,59 @@ from package_collector import (
     WebhookServerConfig,
 )
 
+APPLICATION_NAME = 'debian-package-collector'
+
 log = get_logger('PackageCollectorApp')
 
 
 def main() -> None:
+    resource_root = _get_resource_root()
     arguments = _get_arguments()
 
-    setup_logging('debian-package-collector', arguments.log_level, arguments.log_file)
+    setup_logging(APPLICATION_NAME)
 
-    log.info('Starting package collector', arguments=vars(arguments))
+    config = ConfigLoader(resource_root, f'/config/{APPLICATION_NAME}.conf').load(arguments)
+
+    _update_logging(config)
+
+    log.info(f'Started {APPLICATION_NAME}', arguments=config)
+
+    initial_collect = bool(config.get('initial_collect', True))
+    github_token = config.get('github_token')
+    download_dir = config.get('download_dir', '/tmp/packages')
+    distro_sub_dirs = config.get('distro_sub_dirs', 'bullseye, bookworm')
+
+    monitor_enable = bool(config.get('monitor_enable', True))
+    monitor_interval = int(config.get('monitor_interval', 600))
+
+    webhook_enable = bool(config.get('webhook_enable', True))
+    webhook_secret = config.get('webhook_secret', '')
+    webhook_port = int(config.get('webhook_port', 8080))
+    webhook_delay = int(config.get('webhook_delay', 60))
+
+    release_config = config['release_config']
 
     repository_provider = RepositoryProvider()
-    source_registry = SourceRegistry(repository_provider, arguments.token)
+    source_registry = SourceRegistry(repository_provider, github_token)
 
     session_provider = SessionProvider()
-    file_downloader = FileDownloader(session_provider, os.path.abspath(arguments.download))
-    asset_downloader = AssetDownloader(file_downloader)
+    file_downloader = FileDownloader(session_provider, os.path.abspath(download_dir))
+    asset_downloader = AssetDownloader(file_downloader, _get_distro_map(distro_sub_dirs))
 
     reusable_timer = ReusableTimer()
-    release_monitor = ReleaseMonitor(source_registry, asset_downloader, reusable_timer, arguments.interval)
-    server_config = WebhookServerConfig(arguments.port, arguments.secret, arguments.delay)
-    webhook_server = WebhookServer(source_registry, file_downloader, asset_downloader, server_config)
-    config_path = file_downloader.download(arguments.release_config, skip_if_exists=False)
-    config = PackageCollectorConfig(config_path, arguments.initial, arguments.monitor, arguments.webhook)
+    release_monitor = ReleaseMonitor(source_registry, asset_downloader, reusable_timer, monitor_interval)
+    server_config = WebhookServerConfig(webhook_port, webhook_secret, webhook_delay)
+    webhook_server = WebhookServer(source_registry, asset_downloader, server_config)
+    config_path = file_downloader.download(release_config, skip_if_exists=False)
+    collector_config = PackageCollectorConfig(config_path, initial_collect, monitor_enable, webhook_enable)
     json_loader = JsonLoader()
 
-    package_collector = PackageCollector(config, json_loader, source_registry, release_monitor, webhook_server)
+    package_collector = PackageCollector(
+        collector_config, json_loader, source_registry, release_monitor, webhook_server
+    )
 
     def handler(signum: int, frame: Any) -> None:
-        log.info('Shutting down package collector', signum=signum)
+        log.info(f'Shutting down {APPLICATION_NAME}', signum=signum)
         package_collector.shutdown()
 
     signal(SIGINT, handler)
@@ -60,33 +86,53 @@ def main() -> None:
     package_collector.run()
 
 
-def _get_arguments() -> Namespace:
+def _get_arguments() -> dict[str, Any]:
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        '-f',
-        '--log-file',
-        help='log file path',
-        default='/var/log/effective-range/debian-package-collector/debian-package-collector.log',
+        '-c',
+        '--config-file',
+        help='configuration file',
+        default=f'/etc/effective-range/{APPLICATION_NAME}/{APPLICATION_NAME}.conf',
     )
-    parser.add_argument('-l', '--log-level', help='logging level', default='info')
-    parser.add_argument('-d', '--download', help='package download location', default='/tmp/packages')
-    parser.add_argument('-i', '--interval', help='release monitor interval in seconds', type=int, default=600)
-    parser.add_argument('-p', '--port', help='webhook server port to listen on', type=int, default=8080)
-    parser.add_argument(
-        '-s', '--secret', help='webhook secret to verify requests, supports environment variables with $'
-    )
-    parser.add_argument(
-        '-t', '--token', help='global token to use if not specified in config, supports environment variables with $'
-    )
-    parser.add_argument('-D', '--delay', help='download delay in seconds after webhook request', type=int, default=10)
 
-    parser.add_argument('--initial', help='enable initial collection', action=BooleanOptionalAction, default=True)
-    parser.add_argument('--monitor', help='enable periodic monitoring', action=BooleanOptionalAction, default=True)
-    parser.add_argument('--webhook', help='enable the webhook server', action=BooleanOptionalAction, default=True)
+    parser.add_argument('-f', '--log-file', help='log file path')
+    parser.add_argument('-l', '--log-level', help='logging level')
+
+    parser.add_argument('--initial-collect', help='enable initial collection', action=BooleanOptionalAction)
+    parser.add_argument('--github-token', help='global token to use if not specified, supports env variables with $')
+    parser.add_argument('--download-dir', help='package download location')
+    parser.add_argument('--distro_sub_dirs', help='distribution subdirectories')
+
+    parser.add_argument('--monitor-interval', help='release monitor interval in seconds')
+    parser.add_argument('--monitor-enable', help='enable periodic monitoring', action=BooleanOptionalAction)
+
+    parser.add_argument('--webhook-enable', help='enable the webhook server', action=BooleanOptionalAction)
+    parser.add_argument('--webhook-secret', help='secret to verify requests, supports env variables with $')
+    parser.add_argument('--webhook-port', help='webhook server port to listen on')
+    parser.add_argument('--webhook-delay', help='download delay in seconds after webhook request')
 
     parser.add_argument('release_config', help='release config JSON file path or URL')
 
-    return parser.parse_args()
+    return {k: v for k, v in vars(parser.parse_args()).items() if v is not None}
+
+
+def _get_resource_root() -> str:
+    return str(Path(os.path.dirname(__file__)).parent.absolute())
+
+
+def _update_logging(configuration: dict[str, Any]) -> None:
+    log_level = configuration.get('log_level', 'INFO')
+    log_file = configuration.get('log_file')
+    setup_logging(APPLICATION_NAME, log_level, log_file, warn_on_overwrite=False)
+
+
+def _get_distro_map(distro_sub_dirs: str) -> OrderedDict[str, str]:
+    distro_map = OrderedDict()
+
+    for distro in distro_sub_dirs.split(','):
+        distro_map[distro.strip()] = distro.strip()
+
+    return distro_map
 
 
 if __name__ == '__main__':
