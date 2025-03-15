@@ -13,8 +13,8 @@ EnvironmentFile=/etc/effective-range/debian-package-collector
 ExecStartPre=-/usr/bin/docker pull effectiverange/debian-package-collector:${TAG}
 ExecStart=/usr/bin/docker run --net=host --name=debian-package-collector \
     -v /etc/effective-range/debian-package-collector:/etc/effective-range/debian-package-collector \
-    -v /opt/debs:/opt/debs \
     -v /var/log/effective-range/debian-package-collector:/var/log/effective-range/debian-package-collector \
+    -v /opt/debs:/opt/debs \
     effectiverange/debian-package-collector:${TAG} \
     -- https://raw.githubusercontent.com/EffectiveRange/infrastructure-configuration/main/aptrepo/collector/config/release-config.json
 ExecStop=/usr/bin/docker kill debian-package-collector
