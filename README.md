@@ -9,8 +9,8 @@
 | package\_collector/releaseMonitor.py   |       37 |        0 |        8 |        1 |     98% |  70->exit |
 | package\_collector/releaseSource.py    |       64 |        0 |       14 |        0 |    100% |           |
 | package\_collector/sourceRegistry.py   |       38 |        0 |        6 |        0 |    100% |           |
-| package\_collector/webhookServer.py    |      112 |        3 |       24 |        2 |     96% |91-93, 126->exit, 166->exit |
-|                              **TOTAL** |  **300** |    **3** |   **64** |    **3** | **98%** |           |
+| package\_collector/webhookServer.py    |      115 |        3 |       28 |        2 |     97% |89-91, 124->exit, 170->exit |
+|                              **TOTAL** |  **303** |    **3** |   **68** |    **3** | **98%** |           |
 
 
 ## Setup coverage badge
