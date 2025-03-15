@@ -201,6 +201,74 @@ class WebhookServerTest(TestCase):
 
         self.assertEqual(200, response.status_code)
 
+    def test_returns_200_and_downloads_asset_after_delay_when_no_assets_and_second_request_arrives_with_no_assets(self):
+        # Given
+        source = create_source()
+        source_registry, asset_downloader, config = create_components(source)
+        config.secret = '$TEST_SECRET'
+
+        with WebhookServer(source_registry, asset_downloader, config) as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+            release['release']['assets'] = []
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release',
+            }
+
+            client.post('/webhook', json=release, headers=headers)
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+            # Then
+            wait_for_assertion(2, asset_downloader.download.assert_called_once_with, source.config, source.release)
+            source.check_latest_release.assert_called_once()
+
+        self.assertEqual(200, response.status_code)
+
+    def test_returns_200_and_downloads_asset_after_delay_when_no_assets_and_second_request_arrives_with_assets(self):
+        # Given
+        source = create_source()
+        source_registry, asset_downloader, config = create_components(source)
+        config.secret = '$TEST_SECRET'
+
+        with WebhookServer(source_registry, asset_downloader, config) as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+            release['release']['assets'] = []
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release',
+            }
+
+            client.post('/webhook', json=release, headers=headers)
+
+            release = create_release()
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release',
+            }
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+            # Then
+            wait_for_assertion(2, asset_downloader.download.assert_called_once_with, source.config, source.release)
+            source.check_latest_release.assert_called_once()
+
+        self.assertEqual(200, response.status_code)
+
     def test_returns_200_and_downloads_asset_after_two_delays_when_no_assets_in_release(self):
         # Given
         source = create_source()

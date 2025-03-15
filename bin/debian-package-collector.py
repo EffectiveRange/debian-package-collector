@@ -9,7 +9,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, BooleanOptio
 from collections import OrderedDict
 from pathlib import Path
 from signal import signal, SIGINT, SIGTERM
-from typing import Any
+from typing import Any, Optional
 
 from common_utility import SessionProvider, FileDownloader, ReusableTimer, ConfigLoader
 from common_utility.jsonLoader import JsonLoader
@@ -45,7 +45,7 @@ def main() -> None:
     initial_collect = bool(config.get('initial_collect', True))
     github_token = config.get('github_token')
     download_dir = config.get('download_dir', '/tmp/packages')
-    distro_sub_dirs = config.get('distro_sub_dirs', 'bullseye, bookworm')
+    distro_sub_dirs = config.get('distro_sub_dirs')
 
     monitor_enable = bool(config.get('monitor_enable', True))
     monitor_interval = int(config.get('monitor_interval', 600))
@@ -126,11 +126,12 @@ def _update_logging(configuration: dict[str, Any]) -> None:
     setup_logging(APPLICATION_NAME, log_level, log_file, warn_on_overwrite=False)
 
 
-def _get_distro_map(distro_sub_dirs: str) -> OrderedDict[str, str]:
+def _get_distro_map(distro_sub_dirs: Optional[str]) -> OrderedDict[str, str]:
     distro_map = OrderedDict()
 
-    for distro in distro_sub_dirs.split(','):
-        distro_map[distro.strip()] = distro.strip()
+    if distro_sub_dirs:
+        for distro in distro_sub_dirs.split(','):
+            distro_map[distro.strip()] = distro.strip()
 
     return distro_map
 
