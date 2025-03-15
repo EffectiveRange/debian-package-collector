@@ -73,12 +73,10 @@ class WebhookServer(IWebhookServer):
 
     def shutdown(self) -> None:
         log.info('Shutting down')
-        self._server.close()
-        self._thread.join()
-
         for timer in self._timers.values():
             timer.cancel()
-
+        self._server.close()
+        self._thread.join()
         self._is_running = False
 
     def is_running(self) -> bool:
@@ -145,16 +143,22 @@ class WebhookServer(IWebhookServer):
             log.info('Available assets', assets=[asset['name'] for asset in assets])
 
             if assets:
+                if repo_name in self._timers:
+                    self._timers[repo_name].cancel()
+
                 Thread(target=self._download_asset_from_api, args=[source]).start()
+
                 return Response(status=200)
             else:
                 log.warn(
                     'No assets found in request, retrying with a delay', repo=repo_name, tag=tag, delay=self._delay
                 )
 
-                timer = ReusableTimer()
-                self._timers[repo_name] = timer
-                timer.start(self._delay, self._download_asset_from_api, args=[source])
+                if repo_name in self._timers:
+                    self._timers[repo_name].restart()
+                else:
+                    self._timers[repo_name] = ReusableTimer()
+                    self._timers[repo_name].start(self._delay, self._download_asset_from_api, args=[source])
 
                 return Response(status=200)
         else:
