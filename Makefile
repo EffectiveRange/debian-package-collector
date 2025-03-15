@@ -9,6 +9,7 @@ clean:
 	rm -rf build dist *.egg-info
 
 package:
+	python3 setup.py bdist_wheel
 	sudo apt-get install -y ruby ruby-dev rubygems build-essential
 	sudo gem install -N fpm
 	fpm setup.py

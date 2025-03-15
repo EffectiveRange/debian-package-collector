@@ -36,7 +36,7 @@ def main() -> None:
 
     setup_logging(APPLICATION_NAME)
 
-    config = ConfigLoader(resource_root, f'/config/{APPLICATION_NAME}.conf').load(arguments)
+    config = ConfigLoader(resource_root, f'config/{APPLICATION_NAME}.conf').load(arguments)
 
     _update_logging(config)
 
