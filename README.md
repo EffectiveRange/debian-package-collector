@@ -49,34 +49,67 @@ pip install .
 
 ```bash
 $ bin/debian-package-collector.py --help
-usage: debian-package-collector.py [-h] [-f LOG_FILE] [-l LOG_LEVEL] [-d DOWNLOAD] [-i INTERVAL] [-p PORT] [-s SECRET] [-t TOKEN] [-D DELAY] [--initial | --no-initial] [--monitor | --no-monitor] [--webhook | --no-webhook] release_config
+usage: debian-package-collector.py [-h] [-c CONFIG_FILE] [-f LOG_FILE] [-l LOG_LEVEL] [--initial-collect | --no-initial-collect] [--github-token GITHUB_TOKEN] [--download-dir DOWNLOAD_DIR] [--distro_sub_dirs DISTRO_SUB_DIRS] [--monitor-interval MONITOR_INTERVAL] [--monitor-enable | --no-monitor-enable]
+                                   [--webhook-enable | --no-webhook-enable] [--webhook-secret WEBHOOK_SECRET] [--webhook-port WEBHOOK_PORT] [--webhook-delay WEBHOOK_DELAY]
+                                   release_config
 
 positional arguments:
   release_config        release config JSON file path or URL
 
 options:
   -h, --help            show this help message and exit
+  -c CONFIG_FILE, --config-file CONFIG_FILE
+                        configuration file (default: /etc/effective-range/debian-package-collector/debian-package-collector.conf)
   -f LOG_FILE, --log-file LOG_FILE
-                        log file path (default: /var/log/effective-range/debian-package-collector/debian-package-collector.log)
+                        log file path (default: None)
   -l LOG_LEVEL, --log-level LOG_LEVEL
-                        logging level (default: info)
-  -d DOWNLOAD, --download DOWNLOAD
-                        package download location (default: /tmp/packages)
-  -i INTERVAL, --interval INTERVAL
-                        release monitor interval in seconds (default: 600)
-  -p PORT, --port PORT  webhook server port to listen on (default: 8080)
-  -s SECRET, --secret SECRET
-                        webhook secret to verify requests, supports environment variables with $ (default: None)
-  -t TOKEN, --token TOKEN
-                        global token to use if not specified in config, supports environment variables with $ (default: None)
-  -D DELAY, --delay DELAY
-                        download delay in seconds after webhook request (default: 10)
-  --initial, --no-initial
-                        enable initial collection (default: True)
-  --monitor, --no-monitor
-                        enable periodic monitoring (default: True)
-  --webhook, --no-webhook
-                        enable the webhook server (default: True)
+                        logging level (default: None)
+  --initial-collect, --no-initial-collect
+                        enable initial collection (default: None)
+  --github-token GITHUB_TOKEN
+                        global token to use if not specified, supports env variables with $ (default: None)
+  --download-dir DOWNLOAD_DIR
+                        package download location (default: None)
+  --distro_sub_dirs DISTRO_SUB_DIRS
+                        distribution subdirectories (default: None)
+  --monitor-interval MONITOR_INTERVAL
+                        release monitor interval in seconds (default: None)
+  --monitor-enable, --no-monitor-enable
+                        enable periodic monitoring (default: None)
+  --webhook-enable, --no-webhook-enable
+                        enable the webhook server (default: None)
+  --webhook-secret WEBHOOK_SECRET
+                        secret to verify requests, supports env variables with $ (default: None)
+  --webhook-port WEBHOOK_PORT
+                        webhook server port to listen on (default: None)
+  --webhook-delay WEBHOOK_DELAY
+                        download delay in seconds after webhook request (default: None)
+```
+
+## Configuration
+
+Default configuration (config/debian-package-collector.conf):
+
+```ini
+[logging]
+log_level = info
+log_file = /var/log/effective-range/debian-package-collector/debian-package-collector.log
+
+[collector]
+initial_collect = true
+github_token = ${GITHUB_TOKEN}
+download_dir = /opt/debs
+distro_sub_dirs = bullseye, bookworm
+
+[monitor]
+monitor_enable = true
+monitor_interval = 3600
+
+[webhook]
+webhook_enable = true
+webhook_secret = ${WEBHOOK_SECRET}
+webhook_port = 8080
+webhook_delay = 600
 ```
 
 ### Example
@@ -103,25 +136,35 @@ Example configuration (example `release-config.json` config file content):
 Output:
 
 ```bash
-2024-07-16T06:09:01.076743Z [info     ] Starting package collector     [PackageCollectorApp] app_version=1.0.3 application=debian-package-collector arguments={'log_file': '/var/log/effective-range/debian-package-collector/debian-package-collector.log', 'log_level': 'info', 'download': '/tmp/packages', 'interval': 600, 'port': 8080, 'secret': None, 'token': None, 'initial': True, 'monitor': True, 'webhook': True, 'release_config': 'build/release-config.json'} hostname=Legion7iPro
-2024-07-16T06:09:01.080167Z [info     ] Local file path provided, skipping download [FileDownloader] app_version=1.0.3 application=debian-package-collector file=/home/attilagombos/EffectiveRange/debian-package-collector/build/release-config.json hostname=Legion7iPro
-2024-07-16T06:09:01.081313Z [info     ] Registered release source for repository [SourceRegistry] app_version=1.0.3 application=debian-package-collector config=ReleaseConfig(EffectiveRange/wifi-manager.git, matcher=*.deb, has_token=False) hostname=Legion7iPro repo=EffectiveRange/wifi-manager
-2024-07-16T06:09:01.081706Z [info     ] Registered release source for repository [SourceRegistry] app_version=1.0.3 application=debian-package-collector config=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False) hostname=Legion7iPro repo=EffectiveRange/pic18-q20-programmer
-2024-07-16T06:09:01.082021Z [info     ] Starting release monitor       [PackageCollector] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro
-2024-07-16T06:09:01.082278Z [info     ] Starting monitoring            [ReleaseMonitor] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro
-2024-07-16T06:09:01.083089Z [info     ] Starting webhook server        [PackageCollector] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro
-2024-07-16T06:09:01.083526Z [info     ] Starting server                [WebhookServer] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro port=8080
-2024-07-16T06:09:01.084025Z [info     ] Initial package collection     [PackageCollector] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro
-2024-07-16T06:09:01.084368Z [info     ] Checking for new releases      [ReleaseMonitor] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro
-2024-07-16T06:09:01.797034Z [info     ] New release found              [ReleaseSource] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro new_tag=v1.0.5 old_tag=None repo=EffectiveRange/wifi-manager
-2024-07-16T06:09:02.213767Z [info     ] Found matching asset           [AssetDownloader] app_version=1.0.3 application=debian-package-collector asset=wifi-manager_1.0.5_armhf.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/wifi-manager.git, matcher=*.deb, has_token=False)
-2024-07-16T06:09:02.215515Z [info     ] Downloading file               [FileDownloader] app_version=1.0.3 application=debian-package-collector file_name=wifi-manager_1.0.5_armhf.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/wifi-manager/releases/assets/175922822
-2024-07-16T06:09:03.158217Z [info     ] Downloaded file                [FileDownloader] app_version=1.0.3 application=debian-package-collector file=/tmp/packages/wifi-manager_1.0.5_armhf.deb hostname=Legion7iPro
-2024-07-16T06:09:03.866964Z [info     ] New release found              [ReleaseSource] app_version=1.0.3 application=debian-package-collector hostname=Legion7iPro new_tag=v0.3.0 old_tag=None repo=EffectiveRange/pic18-q20-programmer
-2024-07-16T06:09:04.278460Z [info     ] Found matching asset           [AssetDownloader] app_version=1.0.3 application=debian-package-collector asset=picprogrammer_0.3.0-1_amd64.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False)
-2024-07-16T06:09:04.280322Z [info     ] Downloading file               [FileDownloader] app_version=1.0.3 application=debian-package-collector file_name=picprogrammer_0.3.0-1_amd64.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/pic18-q20-programmer/releases/assets/175069476
-2024-07-16T06:09:05.237544Z [info     ] Downloaded file                [FileDownloader] app_version=1.0.3 application=debian-package-collector file=/tmp/packages/picprogrammer_0.3.0-1_amd64.deb hostname=Legion7iPro
-2024-07-16T06:09:05.238224Z [info     ] Found matching asset           [AssetDownloader] app_version=1.0.3 application=debian-package-collector asset=picprogrammer_0.3.0-1_armhf.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False)
-2024-07-16T06:09:05.238617Z [info     ] Downloading file               [FileDownloader] app_version=1.0.3 application=debian-package-collector file_name=picprogrammer_0.3.0-1_armhf.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/pic18-q20-programmer/releases/assets/175069584
-2024-07-16T06:09:06.058243Z [info     ] Downloaded file                [FileDownloader] app_version=1.0.3 application=debian-package-collector file=/tmp/packages/picprogrammer_0.3.0-1_armhf.deb hostname=Legion7iPro
+2025-03-15T16:23:31.787518Z [info     ] Using configuration file       [ConfigLoader] app_version=1.1.4 application=debian-package-collector config_file=/etc/effective-range/debian-package-collector/debian-package-collector.conf hostname=Legion7iPro
+2025-03-15T16:23:31.788483Z [info     ] Started debian-package-collector [PackageCollectorApp] app_version=1.1.4 application=debian-package-collector arguments={'log_level': 'info', 'log_file': '/var/log/effective-range/debian-package-collector/debian-package-collector.log', 'initial_collect': 'true', 'github_token': '${GITHUB_TOKEN}', 'download_dir': '/tmp/packages', 'distro_sub_dirs': 'bullseye, bookworm', 'monitor_enable': 'true', 'monitor_interval': '3600', 'webhook_enable': 'true', 'webhook_secret': '${WEBHOOK_SECRET}', 'webhook_port': '8080', 'webhook_delay': '600', 'config_file': '/etc/effective-range/debian-package-collector/debian-package-collector.conf', 'release_config': 'build/release-config.json'} hostname=Legion7iPro
+2025-03-15T16:23:31.811759Z [info     ] Local file path provided, skipping download [FileDownloader] app_version=1.1.4 application=debian-package-collector file=/home/attilagombos/EffectiveRange2/debian-package-collector/build/release-config.json hostname=Legion7iPro
+2025-03-15T16:23:31.812479Z [info     ] Using global GitHub token for release source [SourceRegistry] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro repo=EffectiveRange/wifi-manager
+2025-03-15T16:23:31.812878Z [info     ] Registered release source for repository [SourceRegistry] app_version=1.1.4 application=debian-package-collector config=ReleaseConfig(EffectiveRange/wifi-manager.git, matcher=*.deb, has_token=False) hostname=Legion7iPro repo=EffectiveRange/wifi-manager
+2025-03-15T16:23:31.813326Z [info     ] Using global GitHub token for release source [SourceRegistry] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro repo=EffectiveRange/pic18-q20-programmer
+2025-03-15T16:23:31.813654Z [info     ] Registered release source for repository [SourceRegistry] app_version=1.1.4 application=debian-package-collector config=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False) hostname=Legion7iPro repo=EffectiveRange/pic18-q20-programmer
+2025-03-15T16:23:31.814030Z [info     ] Starting release monitor       [PackageCollector] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro
+2025-03-15T16:23:31.814357Z [info     ] Starting monitoring            [ReleaseMonitor] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro
+2025-03-15T16:23:31.814861Z [info     ] Starting webhook server        [PackageCollector] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro
+2025-03-15T16:23:31.815223Z [info     ] Starting server                [WebhookServer] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro port=8080
+2025-03-15T16:23:31.815755Z [info     ] Initial package collection     [PackageCollector] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro
+2025-03-15T16:23:31.816496Z [info     ] Checking for new releases      [ReleaseMonitor] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro
+2025-03-15T16:23:32.523592Z [info     ] Initial release                [ReleaseSource] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro repo=EffectiveRange/wifi-manager tag=v1.3.0
+2025-03-15T16:23:32.931951Z [info     ] Found matching asset           [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=wifi-manager_1.3.0-1_all.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/wifi-manager.git, matcher=*.deb, has_token=False)
+2025-03-15T16:23:32.933222Z [warning  ] No matching distro found in file name, using default [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=wifi-manager_1.3.0-1_all.deb distro=bullseye hostname=Legion7iPro
+2025-03-15T16:23:32.934114Z [info     ] Downloading file               [FileDownloader] app_version=1.1.4 application=debian-package-collector file_name=wifi-manager_1.3.0-1_all.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/wifi-manager/releases/assets/228471102
+2025-03-15T16:23:34.729972Z [info     ] Downloaded file                [FileDownloader] app_version=1.1.4 application=debian-package-collector file=/tmp/packages/bullseye/wifi-manager_1.3.0-1_all.deb hostname=Legion7iPro
+2025-03-15T16:23:35.463651Z [info     ] Initial release                [ReleaseSource] app_version=1.1.4 application=debian-package-collector hostname=Legion7iPro repo=EffectiveRange/pic18-q20-programmer tag=v0.3.1
+2025-03-15T16:23:35.881742Z [info     ] Found matching asset           [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=picprogrammer_0.3.0-1_amd64.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False)
+2025-03-15T16:23:35.882322Z [warning  ] No matching distro found in file name, using default [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=picprogrammer_0.3.0-1_amd64.deb distro=bullseye hostname=Legion7iPro
+2025-03-15T16:23:35.882675Z [info     ] Downloading file               [FileDownloader] app_version=1.1.4 application=debian-package-collector file_name=picprogrammer_0.3.0-1_amd64.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/pic18-q20-programmer/releases/assets/208544277
+2025-03-15T16:23:39.741440Z [info     ] Downloaded file                [FileDownloader] app_version=1.1.4 application=debian-package-collector file=/tmp/packages/bullseye/picprogrammer_0.3.0-1_amd64.deb hostname=Legion7iPro
+2025-03-15T16:23:39.743407Z [info     ] Found matching asset           [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=picprogrammer_0.3.0-1_arm64.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False)
+2025-03-15T16:23:39.743980Z [warning  ] No matching distro found in file name, using default [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=picprogrammer_0.3.0-1_arm64.deb distro=bullseye hostname=Legion7iPro
+2025-03-15T16:23:39.744370Z [info     ] Downloading file               [FileDownloader] app_version=1.1.4 application=debian-package-collector file_name=picprogrammer_0.3.0-1_arm64.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/pic18-q20-programmer/releases/assets/208544395
+2025-03-15T16:23:42.539513Z [info     ] Downloaded file                [FileDownloader] app_version=1.1.4 application=debian-package-collector file=/tmp/packages/bullseye/picprogrammer_0.3.0-1_arm64.deb hostname=Legion7iPro
+2025-03-15T16:23:42.541539Z [info     ] Found matching asset           [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=picprogrammer_0.3.0-1_armhf.deb hostname=Legion7iPro release=ReleaseConfig(EffectiveRange/pic18-q20-programmer.git, matcher=*.deb, has_token=False)
+2025-03-15T16:23:42.542852Z [warning  ] No matching distro found in file name, using default [AssetDownloader] app_version=1.1.4 application=debian-package-collector asset=picprogrammer_0.3.0-1_armhf.deb distro=bullseye hostname=Legion7iPro
+2025-03-15T16:23:42.544005Z [info     ] Downloading file               [FileDownloader] app_version=1.1.4 application=debian-package-collector file_name=picprogrammer_0.3.0-1_armhf.deb headers=['Accept'] hostname=Legion7iPro url=https://api.github.com/repos/EffectiveRange/pic18-q20-programmer/releases/assets/208544421
+2025-03-15T16:23:50.137828Z [info     ] Downloaded file                [FileDownloader] app_version=1.1.4 application=debian-package-collector file=/tmp/packages/bullseye/picprogrammer_0.3.0-1_armhf.deb hostname=Legion7iPro
 ```
