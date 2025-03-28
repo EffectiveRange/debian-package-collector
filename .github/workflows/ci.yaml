@@ -1,4 +1,4 @@
-name: Test and Release
+name: CI
 
 on:
   push:
@@ -32,7 +32,6 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: '*.whl'
           path: ${{ github.workspace }}/dist
 
       - name: Set up QEMU for multi-architecture builds
