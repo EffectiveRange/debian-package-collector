@@ -84,6 +84,20 @@ class ReleaseMonitorTest(TestCase):
         # Then
         asset_downloader.download.assert_called_once_with(source2.config, source2.release)
 
+    def test_handles_error_when_new_release_found_and_fails_to_download_assets(self):
+        # Given
+        source1 = create_source(is_new_release=False)
+        source2 = create_source(is_new_release=True)
+        source_registry, asset_downloader, monitor_timer = create_components([source1, source2], source2)
+        asset_downloader.download.side_effect = Exception("Download failed")
+        release_monitor = ReleaseMonitor(source_registry, asset_downloader, monitor_timer, 600)
+
+        # When
+        release_monitor.check('owner1/repo1')
+
+        # Then
+        asset_downloader.download.assert_called_once_with(source2.config, source2.release)
+
     def test_skips_check_when_no_source_registered_for_package(self):
         # Given
         source1 = create_source(is_new_release=False)

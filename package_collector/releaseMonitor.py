@@ -28,13 +28,8 @@ class IReleaseMonitor(object):
 
 class ReleaseMonitor(IReleaseMonitor):
 
-    def __init__(
-        self,
-        source_registry: ISourceRegistry,
-        asset_downloader: IAssetDownloader,
-        monitor_timer: IReusableTimer,
-        monitor_interval: int = 600,
-    ) -> None:
+    def __init__(self, source_registry: ISourceRegistry, asset_downloader: IAssetDownloader,
+                 monitor_timer: IReusableTimer, monitor_interval: int = 600) -> None:
         self._source_registry = source_registry
         self._asset_downloader = asset_downloader
         self._monitor_timer = monitor_timer
@@ -54,6 +49,8 @@ class ReleaseMonitor(IReleaseMonitor):
         for source in self._source_registry.get_all():
             self._check_source(source)
 
+        log.info('Checking completed')
+
     def check(self, repo_name: str) -> None:
         if source := self._source_registry.get(repo_name):
             self._check_source(source)
@@ -68,4 +65,8 @@ class ReleaseMonitor(IReleaseMonitor):
     def _check_source(self, source: IReleaseSource) -> None:
         if source.check_latest_release():
             if release := source.get_release():
-                self._asset_downloader.download(source.get_config(), release)
+                try:
+                    self._asset_downloader.download(source.get_config(), release)
+                except Exception as exception:
+                    log.error('Failed to download release',
+                              repo=source.get_config().full_name, release=release.tag_name, error=str(exception))

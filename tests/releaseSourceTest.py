@@ -148,6 +148,7 @@ class ReleaseSourceTest(TestCase):
         # Given
         release = create_release('1.0.0')
         config, repository_provider, repository = create_components(release)
+        repository.private = True
         release_source = ReleaseSource(config, repository_provider)
 
         release_source.check_latest_release()
@@ -157,6 +158,7 @@ class ReleaseSourceTest(TestCase):
 
         # Then
         self.assertEqual(release, result)
+        self.assertTrue(config.private)
 
 
 def create_release(tag_name):

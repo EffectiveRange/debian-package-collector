@@ -269,7 +269,7 @@ class WebhookServerTest(TestCase):
 
         self.assertEqual(200, response.status_code)
 
-    def test_returns_200_and_downloads_asset_after_two_delays_when_no_assets_in_release(self):
+    def test_returns_200_and_downloads_asset_after_retry(self):
         # Given
         source = create_source()
         source.check_latest_release.side_effect = [False, True]
@@ -281,7 +281,6 @@ class WebhookServerTest(TestCase):
 
             client = webhook_server._app.test_client()
             release = create_release()
-            release['release']['assets'] = []
 
             headers = {
                 'Content-Type': 'application/json',
@@ -294,6 +293,64 @@ class WebhookServerTest(TestCase):
 
             # Then
             wait_for_assertion(3, asset_downloader.download.assert_called_once_with, source.config, source.release)
+            source.check_latest_release.assert_called()
+
+        self.assertEqual(200, response.status_code)
+
+    def test_returns_200_and_stops_after_retries(self):
+        # Given
+        source = create_source()
+        source.check_latest_release.return_value = False
+        source_registry, asset_downloader, config = create_components(source)
+        config.secret = '$TEST_SECRET'
+
+        with WebhookServer(source_registry, asset_downloader, config) as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release',
+            }
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+            # Then
+            asset_downloader.download.assert_not_called()
+            source.check_latest_release.assert_called()
+
+        self.assertEqual(200, response.status_code)
+
+    def test_returns_200_and_stops_after_retries_when_already_retrying(self):
+        # Given
+        source = create_source()
+        source.check_latest_release.return_value = False
+        source_registry, asset_downloader, config = create_components(source)
+        config.secret = '$TEST_SECRET'
+
+        with WebhookServer(source_registry, asset_downloader, config) as webhook_server:
+            webhook_server.start()
+
+            client = webhook_server._app.test_client()
+            release = create_release()
+
+            headers = {
+                'Content-Type': 'application/json',
+                'X-Hub-Signature-256': create_signature('test_secret', release),
+                'X-GitHub-Event': 'release',
+            }
+
+            client.post('/webhook', json=release, headers=headers)
+
+            # When
+            response = client.post('/webhook', json=release, headers=headers)
+
+            # Then
+            asset_downloader.download.assert_not_called()
             source.check_latest_release.assert_called()
 
         self.assertEqual(200, response.status_code)
@@ -399,7 +456,7 @@ def create_components(source: IReleaseSource = None):
     source_registry.get.return_value = source
     source_registry.is_registered.return_value = source is not None
     asset_downloader = MagicMock(spec=IAssetDownloader)
-    server_config = WebhookServerConfig(0, 'secret', 1)
+    server_config = WebhookServerConfig(0, 'secret', 2, 0.5)
     return source_registry, asset_downloader, server_config
 
 

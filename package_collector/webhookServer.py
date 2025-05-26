@@ -6,17 +6,18 @@ import hashlib
 import hmac
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from threading import Thread
+from threading import Thread, Event
 from typing import Any, Optional
 
-from common_utility import ReusableTimer, IReusableTimer
 from context_logger import get_logger
 from flask import Flask, request, Response, abort
 from package_downloader import IAssetDownloader
+from tenacity import Retrying, stop_after_attempt, wait_fixed, stop_any, stop_when_event_set
 from waitress.server import create_server
 
-from package_collector import ISourceRegistry, IReleaseSource
+from package_collector import ISourceRegistry
 
 log = get_logger('WebhookServer')
 
@@ -25,7 +26,15 @@ log = get_logger('WebhookServer')
 class WebhookServerConfig:
     port: int
     secret: str
-    delay: int
+    retry: int
+    delay: float
+
+
+class AssetsNotAvailableError(Exception):
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
 
 
 class IWebhookServer(object):
@@ -42,22 +51,20 @@ class IWebhookServer(object):
 
 class WebhookServer(IWebhookServer):
 
-    def __init__(
-        self,
-        source_registry: ISourceRegistry,
-        asset_downloader: IAssetDownloader,
-        config: WebhookServerConfig,
-    ) -> None:
+    def __init__(self, source_registry: ISourceRegistry, asset_downloader: IAssetDownloader,
+                 config: WebhookServerConfig) -> None:
         self._source_registry = source_registry
         self._asset_downloader = asset_downloader
         self._port = config.port
         self._secret = self._get_secret(config.secret)
+        self._retry = config.retry
         self._delay = config.delay
         self._app = Flask(__name__)
         self._server = create_server(self._app, listen=f'*:{self._port}')
         self._thread = Thread(target=self._start_server)
         self._is_running = False
-        self._timers: dict[str, IReusableTimer] = {}
+        self._executor = ThreadPoolExecutor(max_workers=3)
+        self._events: dict[str, Event] = {}
 
         self._set_up_webhook_endpoint()
 
@@ -73,8 +80,9 @@ class WebhookServer(IWebhookServer):
 
     def shutdown(self) -> None:
         log.info('Shutting down')
-        for timer in self._timers.values():
-            timer.cancel()
+        for event in self._events.values():
+            event.set()
+        self._executor.shutdown()
         self._server.close()
         self._thread.join()
         self._is_running = False
@@ -136,39 +144,33 @@ class WebhookServer(IWebhookServer):
         log.info('Processing release', repo=repo_name, action=action, tag=tag)
 
         if self._source_registry.is_registered(repo_name):
-            source = self._source_registry.get(repo_name)
+            event = self._get_event(repo_name)
 
-            assets = release['assets']
+            retryer = Retrying(stop=stop_any(stop_after_attempt(self._retry), stop_when_event_set(event)),
+                               wait=wait_fixed(self._delay), reraise=True)
 
-            log.info('Available assets', assets=[asset['name'] for asset in assets])
+            self._executor.submit(retryer, self._download_asset_from_api, repo_name)
 
-            if assets:
-                if repo_name in self._timers:
-                    self._timers[repo_name].cancel()
-
-                Thread(target=self._download_asset_from_api, args=[source]).start()
-
-                return Response(status=200)
-            else:
-                log.warn(
-                    'No assets found in request, retrying with a delay', repo=repo_name, tag=tag, delay=self._delay
-                )
-
-                if repo_name in self._timers:
-                    self._timers[repo_name].restart()
-                else:
-                    self._timers[repo_name] = ReusableTimer()
-                    self._timers[repo_name].start(self._delay, self._download_asset_from_api, args=[source])
-
-                return Response(status=200)
+            return Response(status=200)
         else:
             log.warn('Repository not registered, skipping', repo=repo_name)
             return Response(status=204)
 
-    def _download_asset_from_api(self, source: IReleaseSource) -> None:
+    def _download_asset_from_api(self, repo_name: str) -> None:
+        source = self._source_registry.get(repo_name)
+
         if source.check_latest_release():
             if release := source.get_release():
                 self._asset_downloader.download(source.get_config(), release)
         else:
-            log.warn('Assets not available yet, retrying', repo=source.get_config().repo, delay=self._delay)
-            self._timers[source.get_config().full_name].restart()
+            log.warn('Assets not available yet', repo=repo_name)
+            raise AssetsNotAvailableError('Assets not available yet')
+
+    def _get_event(self, repo_name: str) -> Event:
+        if repo_name in self._events:
+            self._events[repo_name].set()
+
+        event = Event()
+        self._events[repo_name] = event
+
+        return event

@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "args": [
+                "--backend=scipy"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python Debugger: debian-package-collector",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/debian-package-collector.py",
+            "args": [],
+            "console": "integratedTerminal"
+        }
+    ]
+}
