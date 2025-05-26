@@ -36,16 +36,17 @@ def main() -> None:
 
     setup_logging(APPLICATION_NAME)
 
-    config = ConfigLoader(resource_root, f'config/{APPLICATION_NAME}.conf').load(arguments)
+    config = ConfigLoader(resource_root / f'config/{APPLICATION_NAME}.conf').load(arguments)
 
     _update_logging(config)
 
-    log.info(f'Started {APPLICATION_NAME}', arguments=config)
+    log.info(f'Started {APPLICATION_NAME}')
 
     initial_collect = bool(config.get('initial_collect', True))
     github_token = config.get('github_token')
-    download_dir = config.get('download_dir', '/tmp/packages')
+    download_dir = Path(config.get('download_dir', '/tmp/packages'))
     distro_sub_dirs = config.get('distro_sub_dirs')
+    private_sub_dir = Path(config.get('private_sub_dir', 'private'))
 
     monitor_enable = bool(config.get('monitor_enable', True))
     monitor_interval = int(config.get('monitor_interval', 600))
@@ -53,6 +54,7 @@ def main() -> None:
     webhook_enable = bool(config.get('webhook_enable', True))
     webhook_secret = config.get('webhook_secret', '')
     webhook_port = int(config.get('webhook_port', 8080))
+    webhook_retry = int(config.get('webhook_retry', 10))
     webhook_delay = int(config.get('webhook_delay', 60))
 
     release_config = config['release_config']
@@ -61,12 +63,12 @@ def main() -> None:
     source_registry = SourceRegistry(repository_provider, github_token)
 
     session_provider = SessionProvider()
-    file_downloader = FileDownloader(session_provider, os.path.abspath(download_dir))
-    asset_downloader = AssetDownloader(file_downloader, _get_distro_map(distro_sub_dirs))
+    file_downloader = FileDownloader(session_provider, download_dir)
+    asset_downloader = AssetDownloader(file_downloader, _get_distro_map(distro_sub_dirs), private_sub_dir)
 
     reusable_timer = ReusableTimer()
     release_monitor = ReleaseMonitor(source_registry, asset_downloader, reusable_timer, monitor_interval)
-    server_config = WebhookServerConfig(webhook_port, webhook_secret, webhook_delay)
+    server_config = WebhookServerConfig(webhook_port, webhook_secret, webhook_retry, webhook_delay)
     webhook_server = WebhookServer(source_registry, asset_downloader, server_config)
     config_path = file_downloader.download(release_config, skip_if_exists=False)
     collector_config = PackageCollectorConfig(config_path, initial_collect, monitor_enable, webhook_enable)
@@ -101,7 +103,8 @@ def _get_arguments() -> dict[str, Any]:
     parser.add_argument('--initial-collect', help='enable initial collection', action=BooleanOptionalAction)
     parser.add_argument('--github-token', help='global token to use if not specified, supports env variables with $')
     parser.add_argument('--download-dir', help='package download location')
-    parser.add_argument('--distro_sub_dirs', help='distribution subdirectories')
+    parser.add_argument('--distro-sub-dirs', help='distribution subdirectories')
+    parser.add_argument('--private-sub-dir', help='subdirectory for private packages')
 
     parser.add_argument('--monitor-interval', help='release monitor interval in seconds')
     parser.add_argument('--monitor-enable', help='enable periodic monitoring', action=BooleanOptionalAction)
@@ -109,15 +112,16 @@ def _get_arguments() -> dict[str, Any]:
     parser.add_argument('--webhook-enable', help='enable the webhook server', action=BooleanOptionalAction)
     parser.add_argument('--webhook-secret', help='secret to verify requests, supports env variables with $')
     parser.add_argument('--webhook-port', help='webhook server port to listen on')
-    parser.add_argument('--webhook-delay', help='download delay in seconds after webhook request')
+    parser.add_argument('--webhook-retries', help='max retries to download assets', type=int)
+    parser.add_argument('--webhook-delay', help='delay between retries in seconds', type=int)
 
     parser.add_argument('release_config', help='release config JSON file path or URL')
 
     return {k: v for k, v in vars(parser.parse_args()).items() if v is not None}
 
 
-def _get_resource_root() -> str:
-    return str(Path(os.path.dirname(__file__)).parent.absolute())
+def _get_resource_root() -> Path:
+    return Path(os.path.dirname(__file__)).parent.absolute()
 
 
 def _update_logging(configuration: dict[str, Any]) -> None:

@@ -92,5 +92,6 @@ class ReleaseSource(IReleaseSource):
     def _get_repository(self) -> Repository:
         if not self._repository:
             self._repository = self._repository_provider.get_repository(self._config)
+            self._config.private = self._repository.private
 
         return self._repository

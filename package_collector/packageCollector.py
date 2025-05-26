@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from common_utility.jsonLoader import IJsonLoader
@@ -16,7 +17,7 @@ log = get_logger('PackageCollector')
 
 @dataclass
 class PackageCollectorConfig:
-    release_config_path: str
+    release_config_path: Path
     initial_collect: bool
     enable_monitor: bool
     enable_webhook: bool
@@ -24,14 +25,8 @@ class PackageCollectorConfig:
 
 class PackageCollector(object):
 
-    def __init__(
-        self,
-        config: PackageCollectorConfig,
-        json_loader: IJsonLoader,
-        source_registry: ISourceRegistry,
-        release_monitor: IReleaseMonitor,
-        webhook_server: IWebhookServer,
-    ):
+    def __init__(self, config: PackageCollectorConfig, json_loader: IJsonLoader, source_registry: ISourceRegistry,
+                 release_monitor: IReleaseMonitor, webhook_server: IWebhookServer) -> None:
         self._config = config
         self._json_loader = json_loader
         self._source_registry = source_registry
