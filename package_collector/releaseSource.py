@@ -6,6 +6,7 @@ from threading import Lock
 from typing import Optional
 
 from context_logger import get_logger
+from github import UnknownObjectException
 from github.GitRelease import GitRelease
 from github.Repository import Repository
 from package_downloader import IRepositoryProvider, ReleaseConfig
@@ -43,7 +44,7 @@ class ReleaseSource(IReleaseSource):
 
     def check_latest_release(self) -> bool:
         with self._lock:
-            if latest_release := self._get_release():
+            if latest_release := self._get_latest_release():
                 current_tag = self._release.tag_name if self._release else None
                 latest_tag = latest_release.tag_name
                 repo_name = self._config.full_name
@@ -81,17 +82,22 @@ class ReleaseSource(IReleaseSource):
 
         return True
 
-    def _get_release(self) -> Optional[GitRelease]:
+    def _get_latest_release(self) -> Optional[GitRelease]:
         try:
             repository = self._get_repository()
             return repository.get_latest_release()
+        except UnknownObjectException as error:
+            log.warn('No release found', status=error.status, reason=error.message, repo=self._config.full_name)
+            return None
         except Exception as error:
-            log.error('Error fetching release', error=error, repo=self._config.full_name)
+            log.error('Unexpected error fetching latest release', error=error, repo=self._config.full_name)
             return None
 
     def _get_repository(self) -> Repository:
         if not self._repository:
             self._repository = self._repository_provider.get_repository(self._config)
-            self._config.private = self._repository.private
+
+            if self._config.private is None:
+                self._config.private = self._repository.private
 
         return self._repository
