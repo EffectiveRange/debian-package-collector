@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 from dataclasses import dataclass
+from threading import Event
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,7 @@ class PackageCollector(object):
         self._source_registry = source_registry
         self._release_monitor = release_monitor
         self._webhook_server = webhook_server
+        self._shutdown_event = Event()
 
     def __enter__(self) -> 'PackageCollector':
         return self
@@ -57,6 +59,8 @@ class PackageCollector(object):
             log.info('Initial package collection')
             self._release_monitor.check_all()
 
+        self._shutdown_event.wait()
+
     def shutdown(self) -> None:
         if self._config.enable_monitor:
             log.info('Stopping release monitor')
@@ -65,3 +69,5 @@ class PackageCollector(object):
         if self._config.enable_webhook:
             log.info('Stopping webhook server')
             self._webhook_server.shutdown()
+
+        self._shutdown_event.set()

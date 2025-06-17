@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from threading import Thread
 from unittest import TestCase, mock
 from unittest.mock import MagicMock
@@ -94,7 +95,7 @@ class PackageCollectorTest(TestCase):
         with PackageCollector(
             config, json_loader, source_registry, release_monitor, webhook_server
         ) as package_collector:
-            package_collector.run()
+            Thread(target=package_collector.run).start()
 
             # Then
             wait_for_assertion(1, release_monitor.check_all.assert_called_once)
@@ -114,7 +115,7 @@ def create_components(
 ):
     if config_list is None:
         config_list = []
-    config = PackageCollectorConfig('', initial_collect, enable_monitor, enable_webhook)
+    config = PackageCollectorConfig(Path(''), initial_collect, enable_monitor, enable_webhook)
     json_loader = MagicMock(spec=IJsonLoader)
     json_loader.load_list.return_value = config_list
     source_registry = MagicMock(spec=ISourceRegistry)
