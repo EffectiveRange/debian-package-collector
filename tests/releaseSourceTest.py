@@ -3,6 +3,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock
 
 from context_logger import setup_logging
+from github import UnknownObjectException
 from github.GitRelease import GitRelease
 from github.GitReleaseAsset import GitReleaseAsset
 from github.Repository import Repository
@@ -132,6 +133,52 @@ class ReleaseSourceTest(TestCase):
         # Then
         self.assertTrue(result)
 
+    def test_not_updates_config_when_private_flag_is_set(self):
+        # Given
+        release = create_release('1.0.0')
+        config, repository_provider, repository = create_components(release)
+        config.private = True
+        repository.private = False
+        release_source = ReleaseSource(config, repository_provider)
+
+        # When
+        result = release_source.check_latest_release()
+
+        # Then
+        self.assertTrue(result)
+        self.assertTrue(config.private)
+        repository_provider.get_repository.assert_called_once_with(config)
+
+    def test_updates_config_when_repo_is_public(self):
+        # Given
+        release = create_release('1.0.0')
+        config, repository_provider, repository = create_components(release)
+        repository.private = False
+        release_source = ReleaseSource(config, repository_provider)
+
+        # When
+        result = release_source.check_latest_release()
+
+        # Then
+        self.assertTrue(result)
+        self.assertFalse(config.private)
+        repository_provider.get_repository.assert_called_once_with(config)
+
+    def test_updates_config_when_repo_is_private(self):
+        # Given
+        release = create_release('1.0.0')
+        config, repository_provider, repository = create_components(release)
+        repository.private = True
+        release_source = ReleaseSource(config, repository_provider)
+
+        # When
+        result = release_source.check_latest_release()
+
+        # Then
+        self.assertTrue(result)
+        self.assertTrue(config.private)
+        repository_provider.get_repository.assert_called_once_with(config)
+
     def test_returns_config(self):
         # Given
         release = create_release('1.0.0')
@@ -178,7 +225,7 @@ def create_components(latest_release=None):
     if latest_release:
         repository.get_latest_release.return_value = latest_release
     else:
-        repository.get_latest_release.side_effect = Exception('No release found')
+        repository.get_latest_release.side_effect = UnknownObjectException(404, message='No release found')
     repository_provider = MagicMock(spec=IRepositoryProvider)
     repository_provider.get_repository.return_value = repository
 
