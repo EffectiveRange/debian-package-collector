@@ -6,11 +6,11 @@
 |--------------------------------------- | -------: | -------: | -------: | -------: | ------: | --------: |
 | package\_collector/\_\_init\_\_.py     |        5 |        0 |        0 |        0 |    100% |           |
 | package\_collector/packageCollector.py |       45 |        0 |       12 |        0 |    100% |           |
-| package\_collector/releaseMonitor.py   |       41 |        0 |        8 |        1 |     98% |  67->exit |
+| package\_collector/releaseMonitor.py   |       47 |        0 |       10 |        1 |     98% |  74->exit |
 | package\_collector/releaseSource.py    |       70 |        0 |       16 |        0 |    100% |           |
 | package\_collector/sourceRegistry.py   |       38 |        0 |        6 |        0 |    100% |           |
 | package\_collector/webhookServer.py    |      117 |        3 |       24 |        2 |     96% |97-99, 132->exit, 163->exit |
-| **TOTAL**                              |  **316** |    **3** |   **66** |    **3** | **98%** |           |
+| **TOTAL**                              |  **322** |    **3** |   **68** |    **3** | **98%** |           |
 
 
 ## Setup coverage badge
