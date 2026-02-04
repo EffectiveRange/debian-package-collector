@@ -42,7 +42,7 @@ class IWebhookServer(object):
     def start(self) -> None:
         raise NotImplementedError()
 
-    def shutdown(self) -> None:
+    def stop(self) -> None:
         raise NotImplementedError()
 
     def is_running(self) -> bool:
@@ -72,13 +72,13 @@ class WebhookServer(IWebhookServer):
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        self.shutdown()
+        self.stop()
 
     def start(self) -> None:
         log.info('Starting server', port=self._port)
         self._thread.start()
 
-    def shutdown(self) -> None:
+    def stop(self) -> None:
         log.info('Shutting down')
         for event in self._events.values():
             event.set()

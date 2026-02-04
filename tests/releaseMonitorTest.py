@@ -36,6 +36,7 @@ class ReleaseMonitorTest(TestCase):
         source2 = create_source(is_new_release=True)
         source_registry, asset_downloader, monitor_timer = create_components([source1, source2])
         release_monitor = ReleaseMonitor(source_registry, asset_downloader, monitor_timer, 600)
+        release_monitor.start()
 
         # When
         release_monitor._check_all_periodic()
@@ -50,7 +51,7 @@ class ReleaseMonitorTest(TestCase):
         release_monitor = ReleaseMonitor(source_registry, asset_downloader, monitor_timer, 600)
 
         # When
-        release_monitor.shutdown()
+        release_monitor.stop()
 
         # Then
         monitor_timer.cancel.assert_called_once()
@@ -62,6 +63,7 @@ class ReleaseMonitorTest(TestCase):
         source3 = create_source(is_new_release=True)
         source_registry, asset_downloader, monitor_timer = create_components([source1, source2, source3])
         release_monitor = ReleaseMonitor(source_registry, asset_downloader, monitor_timer, 600)
+        release_monitor.start()
 
         # When
         release_monitor.check_all()
@@ -70,6 +72,20 @@ class ReleaseMonitorTest(TestCase):
         asset_downloader.download.assert_has_calls(
             [mock.call(source1.config, source1.release), mock.call(source3.config, source3.release)]
         )
+
+    def test_interrupts_download_when_stopped(self):
+        # Given
+        source1 = create_source(is_new_release=True)
+        source_registry, asset_downloader, monitor_timer = create_components([source1])
+        release_monitor = ReleaseMonitor(source_registry, asset_downloader, monitor_timer, 600)
+        release_monitor.start()
+        release_monitor.stop()
+
+        # When
+        release_monitor.check_all()
+
+        # Then
+        asset_downloader.download.assert_not_called()
 
     def test_downloads_release_asset_when_new_release_found(self):
         # Given

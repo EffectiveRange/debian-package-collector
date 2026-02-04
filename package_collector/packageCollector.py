@@ -64,10 +64,10 @@ class PackageCollector(object):
     def shutdown(self) -> None:
         if self._config.enable_monitor:
             log.info('Stopping release monitor')
-            self._release_monitor.shutdown()
+            self._release_monitor.stop()
 
         if self._config.enable_webhook:
             log.info('Stopping webhook server')
-            self._webhook_server.shutdown()
+            self._webhook_server.stop()
 
         self._shutdown_event.set()
