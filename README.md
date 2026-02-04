@@ -5,12 +5,12 @@
 | Name                                   |    Stmts |     Miss |   Branch |   BrPart |   Cover |   Missing |
 |--------------------------------------- | -------: | -------: | -------: | -------: | ------: | --------: |
 | package\_collector/\_\_init\_\_.py     |        5 |        0 |        0 |        0 |    100% |           |
-| package\_collector/packageCollector.py |       44 |        0 |       12 |        0 |    100% |           |
-| package\_collector/releaseMonitor.py   |       37 |        0 |        8 |        1 |     98% |  70->exit |
-| package\_collector/releaseSource.py    |       64 |        0 |       14 |        0 |    100% |           |
+| package\_collector/packageCollector.py |       45 |        0 |       12 |        0 |    100% |           |
+| package\_collector/releaseMonitor.py   |       41 |        0 |        8 |        1 |     98% |  67->exit |
+| package\_collector/releaseSource.py    |       70 |        0 |       16 |        0 |    100% |           |
 | package\_collector/sourceRegistry.py   |       38 |        0 |        6 |        0 |    100% |           |
-| package\_collector/webhookServer.py    |      115 |        3 |       28 |        2 |     97% |89-91, 124->exit, 170->exit |
-|                              **TOTAL** |  **303** |    **3** |   **68** |    **3** | **98%** |           |
+| package\_collector/webhookServer.py    |      117 |        3 |       24 |        2 |     96% |97-99, 132->exit, 163->exit |
+| **TOTAL**                              |  **316** |    **3** |   **66** |    **3** | **98%** |           |
 
 
 ## Setup coverage badge
