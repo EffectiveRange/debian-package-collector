@@ -99,7 +99,8 @@ log_file = /var/log/effective-range/debian-package-collector/debian-package-coll
 initial_collect = true
 github_token = ${GITHUB_TOKEN}
 download_dir = /opt/debs
-distro_sub_dirs = bullseye, bookworm
+distro_sub_dirs = bookworm, trixie
+private_sub_dir = private
 
 [monitor]
 monitor_enable = true
@@ -109,7 +110,8 @@ monitor_interval = 3600
 webhook_enable = true
 webhook_secret = ${WEBHOOK_SECRET}
 webhook_port = 8080
-webhook_delay = 600
+webhook_delay = 60
+webhook_retry = 10
 ```
 
 ### Example

@@ -16,7 +16,7 @@ class IReleaseMonitor(object):
     def start(self) -> None:
         raise NotImplementedError()
 
-    def shutdown(self) -> None:
+    def stop(self) -> None:
         raise NotImplementedError()
 
     def check_all(self) -> None:
@@ -34,19 +34,26 @@ class ReleaseMonitor(IReleaseMonitor):
         self._asset_downloader = asset_downloader
         self._monitor_timer = monitor_timer
         self._monitor_interval = monitor_interval
+        self._is_running = False
 
     def start(self) -> None:
         log.info('Starting monitoring')
         self._monitor_timer.start(self._monitor_interval, self._check_all_periodic)
+        self._is_running = True
 
-    def shutdown(self) -> None:
+    def stop(self) -> None:
         log.info('Stopping monitoring')
         self._monitor_timer.cancel()
+        self._is_running = False
 
     def check_all(self) -> None:
         log.info('Checking for new releases')
 
         for source in self._source_registry.get_all():
+            if not self._is_running:
+                log.info('Checking interrupted')
+                return
+
             self._check_source(source)
 
         log.info('Checking completed')

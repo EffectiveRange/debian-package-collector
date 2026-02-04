@@ -43,8 +43,8 @@ class PackageCollectorTest(TestCase):
             release_monitor.start.assert_called_once()
             webhook_server.start.assert_called_once()
 
-        release_monitor.shutdown.assert_called_once()
-        webhook_server.shutdown.assert_called_once()
+        release_monitor.stop.assert_called_once()
+        webhook_server.stop.assert_called_once()
 
     def test_run_and_shutdown_when_no_webhook_server(self):
         # Given
@@ -62,8 +62,8 @@ class PackageCollectorTest(TestCase):
             release_monitor.start.assert_called_once()
             webhook_server.start.assert_not_called()
 
-        release_monitor.shutdown.assert_called_once()
-        webhook_server.shutdown.assert_not_called()
+        release_monitor.stop.assert_called_once()
+        webhook_server.stop.assert_not_called()
 
     def test_run_and_shutdown_when_no_initial_collection_and_no_monitoring(self):
         # Given
@@ -82,8 +82,8 @@ class PackageCollectorTest(TestCase):
 
             release_monitor.start.assert_not_called()
 
-        release_monitor.shutdown.assert_not_called()
-        webhook_server.shutdown.assert_called_once()
+        release_monitor.stop.assert_not_called()
+        webhook_server.stop.assert_called_once()
 
     def test_run_and_shutdown_when_no_webhook_server_and_no_monitoring(self):
         # Given
@@ -103,8 +103,8 @@ class PackageCollectorTest(TestCase):
             release_monitor.start.assert_not_called()
             webhook_server.start.assert_not_called()
 
-        release_monitor.shutdown.assert_not_called()
-        webhook_server.shutdown.assert_not_called()
+        release_monitor.stop.assert_not_called()
+        webhook_server.stop.assert_not_called()
 
 
 def create_components(
